@@ -2,6 +2,10 @@
 cmake_minimum_required(VERSION 3.14)
 project(diary_app LANGUAGES CXX)
 
+# Allow Firebase C++ SDK (which uses cmake_minimum_required < 3.5) to configure
+# under newer CMake without errors.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
 set(BINARY_NAME "diary_app")
@@ -65,9 +69,9 @@ include(flutter/generated_plugins.cmake)
 set(BUILD_BUNDLE_DIR "$<TARGET_FILE_DIR:${BINARY_NAME}>")
 # Make the "install" step default, as it's required to run.
 set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
-endif()
+# CMAKE_INSTALL_PREFIX does not support generator expressions.
+# Point directly to the per-config runner output dir so files land next to the exe.
+set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/runner/Debug" CACHE PATH "" FORCE)
 
 set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")

@@ -1,0 +1,107 @@
+import 'dart:convert';
+
+import 'package:isar/isar.dart';
+import 'package:path_provider/path_provider.dart';
+
+import '../../models/entry.dart';
+import '../../models/search_index.dart';
+
+/// 本地 Isar 搜索 / 离线缓存数据源。
+/// 仅持有索引行（[SearchIndex]），不存完整 Entry；
+/// 搜索命中后由调用方再去 Firestore 拉详情或走 Firestore 自身的离线缓存。
+class IsarSearchDataSource {
+  IsarSearchDataSource._(this._isar);
+
+  final Isar _isar;
+
+  static Isar? _cached;
+
+  /// 应用启动时调用一次，单例。
+  static Future<IsarSearchDataSource> open() async {
+    if (_cached != null) return IsarSearchDataSource._(_cached!);
+    final dir = await getApplicationDocumentsDirectory();
+    final isar = await Isar.open(
+      [SearchIndexSchema],
+      directory: dir.path,
+      name: 'diary_search',
+    );
+    _cached = isar;
+    return IsarSearchDataSource._(isar);
+  }
+
+  Future<void> upsert(Entry entry) async {
+    final row = SearchIndex.fromEntry(
+      entry,
+      plainBody: _extractPlainText(entry.contentDelta),
+    );
+    await _isar.writeTxn(() async {
+      // 通过 entryId 唯一索引 upsert。
+      // ignore: experimental_member_use
+      await _isar.searchIndexs.putByEntryId(row);
+    });
+  }
+
+  Future<void> remove(String entryId) async {
+    await _isar.writeTxn(() async {
+      // ignore: experimental_member_use
+      await _isar.searchIndexs.deleteByEntryId(entryId);
+    });
+  }
+
+  Future<void> clear() async {
+    await _isar.writeTxn(() => _isar.searchIndexs.clear());
+  }
+
+  /// 简易关键字搜索：在 title / body / projectName / tags 上做大小写不敏感的 contains。
+  Future<List<String>> searchEntryIds(
+    String query, {
+    EntryCategory? category,
+    int limit = 50,
+  }) async {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) {
+      final rows = await _isar.searchIndexs
+          .where()
+          .sortByUpdatedAtDesc()
+          .limit(limit)
+          .findAll();
+      return rows.map((r) => r.entryId).toList();
+    }
+
+    final rows = await _isar.searchIndexs
+        .filter()
+        .titleTokensContains(q, caseSensitive: false)
+        .or()
+        .bodyTokensContains(q, caseSensitive: false)
+        .or()
+        .tagsContains(q, caseSensitive: false)
+        .or()
+        .projectNameContains(q, caseSensitive: false)
+        .sortByUpdatedAtDesc()
+        .limit(limit)
+        .findAll();
+
+    return rows.map((r) => r.entryId).toList();
+  }
+
+  /// 从 Quill Delta JSON 中提取纯文本，供索引使用。
+  /// 失败时退化为原字符串。
+  static String _extractPlainText(String delta) {
+    try {
+      final parsed = jsonDecode(delta);
+      final ops = parsed is Map ? parsed['ops'] : parsed;
+      if (ops is List) {
+        final buf = StringBuffer();
+        for (final op in ops) {
+          if (op is Map && op['insert'] is String) {
+            buf.write(op['insert']);
+          }
+        }
+        return buf.toString();
+      }
+    } catch (_) {
+      // ignore
+    }
+    return delta;
+  }
+}

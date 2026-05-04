@@ -52,6 +52,9 @@ dependencies:
   # 偏好持久化（主题模式）
   shared_preferences: ^2.3.5
 
+  # Windows 端 FFI：在进程启动时注入 HTTPS_PROXY 给 Firebase C++ SDK 的 curl 用
+  ffi: ^2.1.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

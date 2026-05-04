@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "136139763827",
+    "project_id": "qpb-diary",
+    "storage_bucket": "qpb-diary.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:136139763827:android:3ca8a6f2525db68c80ba06",
+        "android_client_info": {
+          "package_name": "com.diary.diary_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBU6NA2GfSHmPnhoI_JKjnIc5_SNwl4jRI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
