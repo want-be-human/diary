@@ -39,12 +39,17 @@ class ProjectMeta {
   final List<String> completedItems;
   final ProjectStatus status;
 
+  /// 是否里程碑节点（首发版本 / 重大功能 / 重要修复）。
+  /// 项目详情页时间轴上里程碑节点放大显示。
+  final bool isMilestone;
+
   const ProjectMeta({
     required this.entryId,
     required this.projectName,
     required this.version,
     required this.completedItems,
     required this.status,
+    this.isMilestone = false,
   });
 
   ProjectMeta copyWith({
@@ -53,6 +58,7 @@ class ProjectMeta {
     String? version,
     List<String>? completedItems,
     ProjectStatus? status,
+    bool? isMilestone,
   }) {
     return ProjectMeta(
       entryId: entryId ?? this.entryId,
@@ -60,6 +66,7 @@ class ProjectMeta {
       version: version ?? this.version,
       completedItems: completedItems ?? this.completedItems,
       status: status ?? this.status,
+      isMilestone: isMilestone ?? this.isMilestone,
     );
   }
 
@@ -69,6 +76,7 @@ class ProjectMeta {
         'version': version,
         'completedItems': completedItems,
         'status': status.wireValue,
+        'isMilestone': isMilestone,
       };
 
   factory ProjectMeta.fromMap(Map<String, dynamic> map) {
@@ -81,6 +89,7 @@ class ProjectMeta {
               .toList() ??
           const <String>[],
       status: ProjectStatusX.fromWire(map['status'] as String?),
+      isMilestone: map['isMilestone'] as bool? ?? false,
     );
   }
 }

@@ -1,8 +1,7 @@
-import 'dart:convert';
-
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../../shared/utils/text_util.dart';
 import '../../models/entry.dart';
 import '../../models/search_index.dart';
 
@@ -32,7 +31,7 @@ class IsarSearchDataSource {
   Future<void> upsert(Entry entry) async {
     final row = SearchIndex.fromEntry(
       entry,
-      plainBody: _extractPlainText(entry.contentDelta),
+      plainBody: TextUtil.extractPlainText(entry.contentDelta),
     );
     await _isar.writeTxn(() async {
       // 通过 entryId 唯一索引 upsert。
@@ -82,26 +81,5 @@ class IsarSearchDataSource {
         .findAll();
 
     return rows.map((r) => r.entryId).toList();
-  }
-
-  /// 从 Quill Delta JSON 中提取纯文本，供索引使用。
-  /// 失败时退化为原字符串。
-  static String _extractPlainText(String delta) {
-    try {
-      final parsed = jsonDecode(delta);
-      final ops = parsed is Map ? parsed['ops'] : parsed;
-      if (ops is List) {
-        final buf = StringBuffer();
-        for (final op in ops) {
-          if (op is Map && op['insert'] is String) {
-            buf.write(op['insert']);
-          }
-        }
-        return buf.toString();
-      }
-    } catch (_) {
-      // ignore
-    }
-    return delta;
   }
 }

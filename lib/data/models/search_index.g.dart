@@ -22,30 +22,55 @@ const SearchIndexSchema = CollectionSchema(
       name: r'bodyTokens',
       type: IsarType.string,
     ),
-    r'entryId': PropertySchema(
+    r'category': PropertySchema(
       id: 1,
+      name: r'category',
+      type: IsarType.string,
+    ),
+    r'createdAt': PropertySchema(
+      id: 2,
+      name: r'createdAt',
+      type: IsarType.dateTime,
+    ),
+    r'entryId': PropertySchema(
+      id: 3,
       name: r'entryId',
       type: IsarType.string,
     ),
+    r'isPinned': PropertySchema(
+      id: 4,
+      name: r'isPinned',
+      type: IsarType.bool,
+    ),
+    r'moodScore': PropertySchema(
+      id: 5,
+      name: r'moodScore',
+      type: IsarType.long,
+    ),
     r'projectName': PropertySchema(
-      id: 2,
+      id: 6,
       name: r'projectName',
       type: IsarType.string,
     ),
     r'tags': PropertySchema(
-      id: 3,
+      id: 7,
       name: r'tags',
       type: IsarType.string,
     ),
     r'titleTokens': PropertySchema(
-      id: 4,
+      id: 8,
       name: r'titleTokens',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 5,
+      id: 9,
       name: r'updatedAt',
       type: IsarType.dateTime,
+    ),
+    r'wordCount': PropertySchema(
+      id: 10,
+      name: r'wordCount',
+      type: IsarType.long,
     )
   },
   estimateSize: _searchIndexEstimateSize,
@@ -63,6 +88,19 @@ const SearchIndexSchema = CollectionSchema(
         IndexPropertySchema(
           name: r'entryId',
           type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    ),
+    r'category': IndexSchema(
+      id: -7560358558326323820,
+      name: r'category',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'category',
+          type: IndexType.value,
           caseSensitive: true,
         )
       ],
@@ -118,6 +156,58 @@ const SearchIndexSchema = CollectionSchema(
           caseSensitive: false,
         )
       ],
+    ),
+    r'createdAt': IndexSchema(
+      id: -3433535483987302584,
+      name: r'createdAt',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'createdAt',
+          type: IndexType.value,
+          caseSensitive: false,
+        )
+      ],
+    ),
+    r'moodScore': IndexSchema(
+      id: -55800858395767011,
+      name: r'moodScore',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'moodScore',
+          type: IndexType.value,
+          caseSensitive: false,
+        )
+      ],
+    ),
+    r'isPinned': IndexSchema(
+      id: 7607338673446676027,
+      name: r'isPinned',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'isPinned',
+          type: IndexType.value,
+          caseSensitive: false,
+        )
+      ],
+    ),
+    r'wordCount': IndexSchema(
+      id: -6865332602315195179,
+      name: r'wordCount',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'wordCount',
+          type: IndexType.value,
+          caseSensitive: false,
+        )
+      ],
     )
   },
   links: {},
@@ -135,6 +225,7 @@ int _searchIndexEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.bodyTokens.length * 3;
+  bytesCount += 3 + object.category.length * 3;
   bytesCount += 3 + object.entryId.length * 3;
   {
     final value = object.projectName;
@@ -154,11 +245,16 @@ void _searchIndexSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.bodyTokens);
-  writer.writeString(offsets[1], object.entryId);
-  writer.writeString(offsets[2], object.projectName);
-  writer.writeString(offsets[3], object.tags);
-  writer.writeString(offsets[4], object.titleTokens);
-  writer.writeDateTime(offsets[5], object.updatedAt);
+  writer.writeString(offsets[1], object.category);
+  writer.writeDateTime(offsets[2], object.createdAt);
+  writer.writeString(offsets[3], object.entryId);
+  writer.writeBool(offsets[4], object.isPinned);
+  writer.writeLong(offsets[5], object.moodScore);
+  writer.writeString(offsets[6], object.projectName);
+  writer.writeString(offsets[7], object.tags);
+  writer.writeString(offsets[8], object.titleTokens);
+  writer.writeDateTime(offsets[9], object.updatedAt);
+  writer.writeLong(offsets[10], object.wordCount);
 }
 
 SearchIndex _searchIndexDeserialize(
@@ -169,12 +265,17 @@ SearchIndex _searchIndexDeserialize(
 ) {
   final object = SearchIndex();
   object.bodyTokens = reader.readString(offsets[0]);
-  object.entryId = reader.readString(offsets[1]);
+  object.category = reader.readString(offsets[1]);
+  object.createdAt = reader.readDateTime(offsets[2]);
+  object.entryId = reader.readString(offsets[3]);
+  object.isPinned = reader.readBool(offsets[4]);
   object.isarId = id;
-  object.projectName = reader.readStringOrNull(offsets[2]);
-  object.tags = reader.readString(offsets[3]);
-  object.titleTokens = reader.readString(offsets[4]);
-  object.updatedAt = reader.readDateTime(offsets[5]);
+  object.moodScore = reader.readLongOrNull(offsets[5]);
+  object.projectName = reader.readStringOrNull(offsets[6]);
+  object.tags = reader.readString(offsets[7]);
+  object.titleTokens = reader.readString(offsets[8]);
+  object.updatedAt = reader.readDateTime(offsets[9]);
+  object.wordCount = reader.readLong(offsets[10]);
   return object;
 }
 
@@ -190,13 +291,23 @@ P _searchIndexDeserializeProp<P>(
     case 1:
       return (reader.readString(offset)) as P;
     case 2:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 3:
       return (reader.readString(offset)) as P;
     case 4:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 5:
+      return (reader.readLongOrNull(offset)) as P;
+    case 6:
+      return (reader.readStringOrNull(offset)) as P;
+    case 7:
+      return (reader.readString(offset)) as P;
+    case 8:
+      return (reader.readString(offset)) as P;
+    case 9:
       return (reader.readDateTime(offset)) as P;
+    case 10:
+      return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -278,6 +389,14 @@ extension SearchIndexQueryWhereSort
     });
   }
 
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhere> anyCategory() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'category'),
+      );
+    });
+  }
+
   QueryBuilder<SearchIndex, SearchIndex, QAfterWhere> anyTitleTokens() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
@@ -306,6 +425,38 @@ extension SearchIndexQueryWhereSort
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'tags'),
+      );
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhere> anyCreatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'createdAt'),
+      );
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhere> anyMoodScore() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'moodScore'),
+      );
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhere> anyIsPinned() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'isPinned'),
+      );
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhere> anyWordCount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'wordCount'),
       );
     });
   }
@@ -422,6 +573,143 @@ extension SearchIndexQueryWhere
               lower: [],
               upper: [entryId],
               includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> categoryEqualTo(
+      String category) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'category',
+        value: [category],
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> categoryNotEqualTo(
+      String category) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'category',
+              lower: [],
+              upper: [category],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'category',
+              lower: [category],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'category',
+              lower: [category],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'category',
+              lower: [],
+              upper: [category],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> categoryGreaterThan(
+    String category, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'category',
+        lower: [category],
+        includeLower: include,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> categoryLessThan(
+    String category, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'category',
+        lower: [],
+        upper: [category],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> categoryBetween(
+    String lowerCategory,
+    String upperCategory, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'category',
+        lower: [lowerCategory],
+        includeLower: includeLower,
+        upper: [upperCategory],
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> categoryStartsWith(
+      String CategoryPrefix) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'category',
+        lower: [CategoryPrefix],
+        upper: ['$CategoryPrefix\u{FFFFF}'],
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> categoryIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'category',
+        value: [''],
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause>
+      categoryIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.lessThan(
+              indexName: r'category',
+              upper: [''],
+            ))
+            .addWhereClause(IndexWhereClause.greaterThan(
+              indexName: r'category',
+              lower: [''],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.greaterThan(
+              indexName: r'category',
+              lower: [''],
+            ))
+            .addWhereClause(IndexWhereClause.lessThan(
+              indexName: r'category',
+              upper: [''],
             ));
       }
     });
@@ -1001,6 +1289,345 @@ extension SearchIndexQueryWhere
       }
     });
   }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> createdAtEqualTo(
+      DateTime createdAt) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'createdAt',
+        value: [createdAt],
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> createdAtNotEqualTo(
+      DateTime createdAt) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'createdAt',
+              lower: [],
+              upper: [createdAt],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'createdAt',
+              lower: [createdAt],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'createdAt',
+              lower: [createdAt],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'createdAt',
+              lower: [],
+              upper: [createdAt],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause>
+      createdAtGreaterThan(
+    DateTime createdAt, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'createdAt',
+        lower: [createdAt],
+        includeLower: include,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> createdAtLessThan(
+    DateTime createdAt, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'createdAt',
+        lower: [],
+        upper: [createdAt],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> createdAtBetween(
+    DateTime lowerCreatedAt,
+    DateTime upperCreatedAt, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'createdAt',
+        lower: [lowerCreatedAt],
+        includeLower: includeLower,
+        upper: [upperCreatedAt],
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> moodScoreIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'moodScore',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause>
+      moodScoreIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'moodScore',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> moodScoreEqualTo(
+      int? moodScore) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'moodScore',
+        value: [moodScore],
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> moodScoreNotEqualTo(
+      int? moodScore) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'moodScore',
+              lower: [],
+              upper: [moodScore],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'moodScore',
+              lower: [moodScore],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'moodScore',
+              lower: [moodScore],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'moodScore',
+              lower: [],
+              upper: [moodScore],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause>
+      moodScoreGreaterThan(
+    int? moodScore, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'moodScore',
+        lower: [moodScore],
+        includeLower: include,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> moodScoreLessThan(
+    int? moodScore, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'moodScore',
+        lower: [],
+        upper: [moodScore],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> moodScoreBetween(
+    int? lowerMoodScore,
+    int? upperMoodScore, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'moodScore',
+        lower: [lowerMoodScore],
+        includeLower: includeLower,
+        upper: [upperMoodScore],
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> isPinnedEqualTo(
+      bool isPinned) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'isPinned',
+        value: [isPinned],
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> isPinnedNotEqualTo(
+      bool isPinned) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'isPinned',
+              lower: [],
+              upper: [isPinned],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'isPinned',
+              lower: [isPinned],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'isPinned',
+              lower: [isPinned],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'isPinned',
+              lower: [],
+              upper: [isPinned],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> wordCountEqualTo(
+      int wordCount) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'wordCount',
+        value: [wordCount],
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> wordCountNotEqualTo(
+      int wordCount) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'wordCount',
+              lower: [],
+              upper: [wordCount],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'wordCount',
+              lower: [wordCount],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'wordCount',
+              lower: [wordCount],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'wordCount',
+              lower: [],
+              upper: [wordCount],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause>
+      wordCountGreaterThan(
+    int wordCount, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'wordCount',
+        lower: [wordCount],
+        includeLower: include,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> wordCountLessThan(
+    int wordCount, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'wordCount',
+        lower: [],
+        upper: [wordCount],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterWhereClause> wordCountBetween(
+    int lowerWordCount,
+    int upperWordCount, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'wordCount',
+        lower: [lowerWordCount],
+        includeLower: includeLower,
+        upper: [upperWordCount],
+        includeUpper: includeUpper,
+      ));
+    });
+  }
 }
 
 extension SearchIndexQueryFilter
@@ -1141,6 +1768,197 @@ extension SearchIndexQueryFilter
     });
   }
 
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition> categoryEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      categoryGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      categoryLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition> categoryBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'category',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      categoryStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      categoryEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      categoryContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition> categoryMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'category',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      categoryIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'category',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      categoryIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'category',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      createdAtEqualTo(DateTime value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'createdAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      createdAtGreaterThan(
+    DateTime value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'createdAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      createdAtLessThan(
+    DateTime value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'createdAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      createdAtBetween(
+    DateTime lower,
+    DateTime upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'createdAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition> entryIdEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -1275,6 +2093,16 @@ extension SearchIndexQueryFilter
     });
   }
 
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition> isPinnedEqualTo(
+      bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isPinned',
+        value: value,
+      ));
+    });
+  }
+
   QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition> isarIdEqualTo(
       Id value) {
     return QueryBuilder.apply(this, (query) {
@@ -1321,6 +2149,80 @@ extension SearchIndexQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
         property: r'isarId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      moodScoreIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'moodScore',
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      moodScoreIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'moodScore',
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      moodScoreEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'moodScore',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      moodScoreGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'moodScore',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      moodScoreLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'moodScore',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      moodScoreBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'moodScore',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -1805,6 +2707,62 @@ extension SearchIndexQueryFilter
       ));
     });
   }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      wordCountEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'wordCount',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      wordCountGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'wordCount',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      wordCountLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'wordCount',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterFilterCondition>
+      wordCountBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'wordCount',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
 }
 
 extension SearchIndexQueryObject
@@ -1827,6 +2785,30 @@ extension SearchIndexQuerySortBy
     });
   }
 
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> sortByCategory() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'category', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> sortByCategoryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'category', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> sortByCreatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> sortByCreatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> sortByEntryId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'entryId', Sort.asc);
@@ -1836,6 +2818,30 @@ extension SearchIndexQuerySortBy
   QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> sortByEntryIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'entryId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> sortByIsPinned() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPinned', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> sortByIsPinnedDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPinned', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> sortByMoodScore() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'moodScore', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> sortByMoodScoreDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'moodScore', Sort.desc);
     });
   }
 
@@ -1886,6 +2892,18 @@ extension SearchIndexQuerySortBy
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> sortByWordCount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wordCount', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> sortByWordCountDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wordCount', Sort.desc);
+    });
+  }
 }
 
 extension SearchIndexQuerySortThenBy
@@ -1902,6 +2920,30 @@ extension SearchIndexQuerySortThenBy
     });
   }
 
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> thenByCategory() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'category', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> thenByCategoryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'category', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> thenByCreatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> thenByCreatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> thenByEntryId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'entryId', Sort.asc);
@@ -1914,6 +2956,18 @@ extension SearchIndexQuerySortThenBy
     });
   }
 
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> thenByIsPinned() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPinned', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> thenByIsPinnedDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPinned', Sort.desc);
+    });
+  }
+
   QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> thenByIsarId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isarId', Sort.asc);
@@ -1923,6 +2977,18 @@ extension SearchIndexQuerySortThenBy
   QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> thenByIsarIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isarId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> thenByMoodScore() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'moodScore', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> thenByMoodScoreDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'moodScore', Sort.desc);
     });
   }
 
@@ -1973,6 +3039,18 @@ extension SearchIndexQuerySortThenBy
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> thenByWordCount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wordCount', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QAfterSortBy> thenByWordCountDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wordCount', Sort.desc);
+    });
+  }
 }
 
 extension SearchIndexQueryWhereDistinct
@@ -1984,10 +3062,35 @@ extension SearchIndexQueryWhereDistinct
     });
   }
 
+  QueryBuilder<SearchIndex, SearchIndex, QDistinct> distinctByCategory(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'category', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QDistinct> distinctByCreatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'createdAt');
+    });
+  }
+
   QueryBuilder<SearchIndex, SearchIndex, QDistinct> distinctByEntryId(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'entryId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QDistinct> distinctByIsPinned() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isPinned');
+    });
+  }
+
+  QueryBuilder<SearchIndex, SearchIndex, QDistinct> distinctByMoodScore() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'moodScore');
     });
   }
 
@@ -2017,6 +3120,12 @@ extension SearchIndexQueryWhereDistinct
       return query.addDistinctBy(r'updatedAt');
     });
   }
+
+  QueryBuilder<SearchIndex, SearchIndex, QDistinct> distinctByWordCount() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'wordCount');
+    });
+  }
 }
 
 extension SearchIndexQueryProperty
@@ -2033,9 +3142,33 @@ extension SearchIndexQueryProperty
     });
   }
 
+  QueryBuilder<SearchIndex, String, QQueryOperations> categoryProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'category');
+    });
+  }
+
+  QueryBuilder<SearchIndex, DateTime, QQueryOperations> createdAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'createdAt');
+    });
+  }
+
   QueryBuilder<SearchIndex, String, QQueryOperations> entryIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'entryId');
+    });
+  }
+
+  QueryBuilder<SearchIndex, bool, QQueryOperations> isPinnedProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isPinned');
+    });
+  }
+
+  QueryBuilder<SearchIndex, int?, QQueryOperations> moodScoreProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'moodScore');
     });
   }
 
@@ -2060,6 +3193,12 @@ extension SearchIndexQueryProperty
   QueryBuilder<SearchIndex, DateTime, QQueryOperations> updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedAt');
+    });
+  }
+
+  QueryBuilder<SearchIndex, int, QQueryOperations> wordCountProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'wordCount');
     });
   }
 }
