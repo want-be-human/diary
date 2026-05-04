@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/theme/app_fonts.dart';
 import '../../data/models/entry.dart';
 import '../../data/repositories/entry_repository_impl.dart';
 import '../../data/services/daily_quote_service.dart';
@@ -137,8 +138,8 @@ class _DailyQuoteCard extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        // 点击刷新——失败的当天可以手动重试
-        onTap: () => ref.invalidate(dailyQuoteProvider),
+        // 点击强制刷新（跳过当天缓存重新请求）。
+        onTap: () => ref.read(dailyQuoteProvider.notifier).refresh(),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -172,10 +173,16 @@ class _DailyQuoteCard extends ConsumerWidget {
                     child: Text(
                       text,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        fontFamily: 'Georgia',
-                        fontStyle: FontStyle.italic,
-                        height: 1.6,
-                        color: scheme.onSurface.withValues(alpha: 0.78),
+                        // 关键字体技巧：fontFamily = FrauncesItalic（永远斜体），
+                        // fallback = NotoSerifSC（中文正体）。Flutter 逐字符寻
+                        // 字形——英文走 Fraunces 斜体，中文走 Noto Serif SC 正体，
+                        // 不会对中文做 synthetic italic（避免难看的强行倾斜）。
+                        fontFamily: AppFonts.serifItalicEnPrimary,
+                        fontFamilyFallback: AppFonts.serifItalicEnFallback,
+                        height: 1.75,
+                        letterSpacing: 0.4,
+                        fontSize: 15,
+                        color: scheme.onSurface.withValues(alpha: 0.85),
                       ),
                     ),
                   ),

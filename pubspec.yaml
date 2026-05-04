@@ -66,3 +66,23 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  fonts:
+    # 衬线英文（Fraunces 72pt）：Regular + 真实 Italic 字形
+    - family: Fraunces
+      fonts:
+        - asset: assets/fonts/Fraunces-Regular.ttf
+        - asset: assets/fonts/Fraunces-Italic.ttf
+          style: italic
+
+    # 永远 italic 的 Fraunces 副本——给"英文要斜体、中文要正体"的混排用：
+    # fontFamily 设这个 + fallback 到 NotoSerifSC，Flutter 不会对中文做
+    # synthetic italic（那样会把 Noto Serif SC 强行倾斜，很丑）。
+    - family: FrauncesItalic
+      fonts:
+        - asset: assets/fonts/Fraunces-Italic.ttf
+
+    # 中文衬线（Noto Serif SC Regular）
+    - family: NotoSerifSC
+      fonts:
+        - asset: assets/fonts/NotoSerifSC-Regular.ttf
