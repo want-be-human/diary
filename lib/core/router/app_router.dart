@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../data/models/entry.dart';
 import '../../data/services/auth_service.dart';
+import '../../features/archive/archive_page.dart';
 import '../../features/auth/login_page.dart';
 import '../../features/detail/detail_page.dart';
 import '../../features/editor/editor_page.dart';
@@ -36,8 +38,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/editor',
-        builder: (context, state) =>
-            EditorPage(entryId: state.uri.queryParameters['id']),
+        builder: (context, state) {
+          final qp = state.uri.queryParameters;
+          return EditorPage(
+            entryId: qp['id'],
+            initialCategory: _parseCategory(qp['category']),
+          );
+        },
       ),
       GoRoute(
         path: '/entry/:id',
@@ -52,9 +59,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/settings',
         builder: (_, __) => const SettingsPage(),
       ),
+      GoRoute(
+        path: '/archive',
+        builder: (_, __) => const ArchivePage(),
+      ),
     ],
   );
 });
+
+EntryCategory? _parseCategory(String? raw) {
+  switch (raw) {
+    case 'diary':
+      return EntryCategory.diary;
+    case 'project':
+      return EntryCategory.project;
+    default:
+      return null;
+  }
+}
 
 /// 把 Riverpod 的 auth 状态变化转成 Listenable，喂给 GoRouter.refreshListenable。
 class _AuthRefresh extends ChangeNotifier {

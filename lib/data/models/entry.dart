@@ -45,6 +45,10 @@ class Entry {
   final WeatherSnapshot? weather;
   final List<TaskItem> subtasks;
 
+  /// 归档状态：归档的条目不出现在主列表，可在"归档"页查看 / 还原。
+  /// 与"删除"区别：归档可逆，删除不可逆。
+  final bool isArchived;
+
   const Entry({
     required this.id,
     required this.title,
@@ -61,6 +65,7 @@ class Entry {
     this.location,
     this.weather,
     this.subtasks = const <TaskItem>[],
+    this.isArchived = false,
   });
 
   Entry copyWith({
@@ -79,6 +84,7 @@ class Entry {
     EntryLocation? location,
     WeatherSnapshot? weather,
     List<TaskItem>? subtasks,
+    bool? isArchived,
     bool clearProjectMeta = false,
     bool clearMood = false,
     bool clearLocation = false,
@@ -101,6 +107,7 @@ class Entry {
       location: clearLocation ? null : (location ?? this.location),
       weather: clearWeather ? null : (weather ?? this.weather),
       subtasks: subtasks ?? this.subtasks,
+      isArchived: isArchived ?? this.isArchived,
     );
   }
 
@@ -131,6 +138,7 @@ class Entry {
         'location': location?.toMap(),
         'weather': weather?.toMap(),
         'subtasks': subtasks.map((t) => t.toMap()).toList(),
+        'isArchived': isArchived,
       };
 
   factory Entry.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -169,6 +177,7 @@ class Entry {
               .map((m) => TaskItem.fromMap(Map<String, dynamic>.from(m)))
               .toList() ??
           const <TaskItem>[],
+      isArchived: data['isArchived'] as bool? ?? false,
     );
   }
 

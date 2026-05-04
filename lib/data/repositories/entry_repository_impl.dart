@@ -61,8 +61,28 @@ class EntryRepositoryImpl implements EntryRepository {
     final entries = await Future.wait(ids.map(remote.findById));
     return entries
         .whereType<Entry>()
+        .where((e) => !e.isArchived) // 默认搜索不返回归档
         .where((e) => category == null || e.category == category)
         .toList(growable: false);
+  }
+
+  @override
+  Stream<List<Entry>> watchArchived() => remote.watchArchived();
+
+  @override
+  Future<void> archive(String id) async {
+    final entry = await remote.findById(id);
+    if (entry == null) return;
+    await remote.update(entry.copyWith(isArchived: true));
+    await searchSource.upsert(entry.copyWith(isArchived: true));
+  }
+
+  @override
+  Future<void> unarchive(String id) async {
+    final entry = await remote.findById(id);
+    if (entry == null) return;
+    await remote.update(entry.copyWith(isArchived: false));
+    await searchSource.upsert(entry.copyWith(isArchived: false));
   }
 
   Future<void> _reindexAll(List<Entry> list) async {

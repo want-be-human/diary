@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/theme_provider.dart';
 import '../../data/services/auth_service.dart';
@@ -56,6 +57,14 @@ class SettingsPage extends ConsumerWidget {
               title: const Text('退出登录'),
               onTap: () => ref.read(authServiceProvider).signOut(),
             ),
+          const Divider(),
+          const _SectionHeader('数据'),
+          ListTile(
+            leading: const Icon(Icons.archive_outlined),
+            title: const Text('归档'),
+            subtitle: const Text('查看已归档条目，可还原'),
+            onTap: () => context.push('/archive'),
+          ),
           const Divider(),
           const _SectionHeader('导出'),
           ListTile(

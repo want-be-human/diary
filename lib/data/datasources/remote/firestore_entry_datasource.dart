@@ -17,15 +17,26 @@ class FirestoreEntryDataSource {
       _firestore.collection('users').doc(uid).collection('entries');
 
   Stream<List<Entry>> watchAll({EntryCategory? category}) {
-    Query<Map<String, dynamic>> query =
-        _col.orderBy('updatedAt', descending: true);
-    if (category != null) {
-      query = query.where('category', isEqualTo: category.wireValue);
-    }
-    return query.snapshots().map(
-          (snap) =>
-              snap.docs.map(Entry.fromFirestore).toList(growable: false),
-        );
+    // 故意不在 Firestore 端加 where：where + orderBy 跨字段需要复合索引
+    // (category, updatedAt)，没建索引时返回空且报 FAILED_PRECONDITION。
+    // 单用户应用条目量小（千级），客户端过滤足够，省掉运维索引的负担。
+    return _col.orderBy('updatedAt', descending: true).snapshots().map((snap) {
+      var all = snap.docs.map(Entry.fromFirestore);
+      // 默认主列表过滤掉归档；归档条目走 watchArchived。
+      all = all.where((e) => !e.isArchived);
+      if (category != null) all = all.where((e) => e.category == category);
+      return all.toList(growable: false);
+    });
+  }
+
+  /// 监听归档列表（isArchived == true）。
+  Stream<List<Entry>> watchArchived() {
+    return _col.orderBy('updatedAt', descending: true).snapshots().map((snap) {
+      return snap.docs
+          .map(Entry.fromFirestore)
+          .where((e) => e.isArchived)
+          .toList(growable: false);
+    });
   }
 
   Stream<Entry?> watchById(String id) {

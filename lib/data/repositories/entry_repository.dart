@@ -23,4 +23,13 @@ abstract class EntryRepository {
   /// 全文搜索；命中按相关度+时间近似排序。
   /// [query] 为空时返回最近条目。
   Future<List<Entry>> search(String query, {EntryCategory? category});
+
+  /// 监听归档列表（仅 isArchived == true 的条目）。
+  Stream<List<Entry>> watchArchived();
+
+  /// 归档（不可见，但可还原）。等价 update(isArchived = true)。
+  Future<void> archive(String id);
+
+  /// 还原归档。
+  Future<void> unarchive(String id);
 }

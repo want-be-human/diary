@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日记 App 主界面三方案对比</title>
+<style>
+  /* === 调色板，与 lib/core/theme/app_colors.dart 保持一致 === */
+  :root {
+    --bg: #F5F2EE;
+    --surface: #FDFBF8;
+    --surface-2: #EFEAE3;
+    --primary: #7C9A7E;       /* sage green */
+    --tertiary: #7B9EC0;      /* dusty blue */
+    --text: #3A3630;
+    --text-mute: rgba(58, 54, 48, 0.62);
+    --text-faint: rgba(58, 54, 48, 0.4);
+    --divider: rgba(58, 54, 48, 0.08);
+    --shadow: 0 1px 3px rgba(58, 54, 48, 0.08), 0 4px 16px rgba(58, 54, 48, 0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 32px 24px 64px;
+    min-height: 100vh;
+  }
+
+  header {
+    max-width: 1280px;
+    margin: 0 auto 32px;
+    text-align: center;
+  }
+
+  header h1 {
+    font-family: Georgia, serif;
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  header p {
+    color: var(--text-mute);
+    font-size: 14px;
+  }
+
+  .grid {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 28px;
+  }
+
+  .card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .card h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    align-self: flex-start;
+  }
+
+  .card .label {
+    color: var(--primary);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    align-self: flex-start;
+  }
+
+  .card .desc {
+    color: var(--text-mute);
+    font-size: 13px;
+    margin-bottom: 20px;
+    align-self: flex-start;
+  }
+
+  /* === 手机外壳 === */
+  .phone {
+    width: 320px;
+    height: 640px;
+    background: var(--surface);
+    border-radius: 28px;
+    border: 1px solid var(--divider);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-shadow:
+      0 0 0 8px #E8E1D6,
+      0 12px 32px rgba(58, 54, 48, 0.18);
+  }
+
+  .status {
+    height: 28px;
+    background: transparent;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 16px;
+    font-size: 11px;
+    color: var(--text-mute);
+    flex-shrink: 0;
+  }
+
+  .appbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px 12px;
+    flex-shrink: 0;
+  }
+  .appbar .title {
+    font-family: Georgia, serif;
+    font-size: 22px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .appbar .streak {
+    font-size: 11px;
+    background: rgba(124, 154, 126, 0.15);
+    color: var(--primary);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .appbar .actions {
+    display: flex;
+    gap: 4px;
+    color: var(--text-mute);
+  }
+  .appbar .icon {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    font-size: 16px;
+  }
+  .appbar .icon:hover { background: var(--surface-2); }
+
+  /* 顶部统计条 */
+  .stat-bar {
+    margin: 0 16px 8px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, rgba(124, 154, 126, 0.12), rgba(123, 158, 192, 0.08));
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text);
+  }
+  .stat-bar strong { color: var(--primary); font-weight: 600; }
+  .stat-bar .dot { color: var(--text-faint); }
+
+  /* 过滤 chips */
+  .chips {
+    padding: 6px 16px 10px;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-shrink: 0;
+  }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    flex-shrink: 0;
+    padding: 5px 12px;
+    border-radius: 14px;
+    background: var(--surface-2);
+    color: var(--text-mute);
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .chip.active {
+    background: var(--primary);
+    color: white;
+  }
+  .chip.special {
+    background: transparent;
+    border-color: var(--divider);
+  }
+
+  /* 顶部 Tab 切换（仅 B 用） */
+  .tabs-strip {
+    display: flex;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--divider);
+    flex-shrink: 0;
+  }
+  .tab-btn {
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--text-mute);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    font-weight: 600;
+  }
+
+  /* 卡片列表 */
+  .feed {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 16px 16px;
+  }
+  .feed::-webkit-scrollbar { width: 0; }
+
+  .section-header {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--primary);
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    padding: 10px 4px 6px;
+  }
+
+  .entry {
+    background: white;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 2px rgba(58, 54, 48, 0.04);
+  }
+  .entry .row1 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .entry .pin { color: var(--primary); font-size: 12px; }
+  .entry .ttl {
+    flex: 1;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .entry .mood { font-size: 16px; }
+  .entry .snippet {
+    font-family: Georgia, serif;
+    font-size: 12px;
+    color: var(--text-mute);
+    line-height: 1.5;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    margin-bottom: 6px;
+  }
+  .entry .meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+  .badge {
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 10px;
+  }
+  .badge.diary { background: rgba(124, 154, 126, 0.16); color: var(--primary); }
+  .badge.project { background: rgba(123, 158, 192, 0.16); color: var(--tertiary); }
+  .badge.flag { background: rgba(220, 130, 80, 0.14); color: #b66232; }
+
+  /* FAB */
+  .fab {
+    position: absolute;
+    right: 16px;
+    bottom: 80px;
+    background: var(--primary);
+    color: white;
+    height: 44px;
+    padding: 0 18px;
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 6px 16px rgba(124, 154, 126, 0.4);
+  }
+  .fab.bottom-only { bottom: 76px; }
+  .fab.standard { bottom: 24px; }
+
+  /* 底部导航 (B) */
+  .bottom-nav {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 64px;
+    background: var(--surface);
+    border-top: 1px solid var(--divider);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding-bottom: 4px;
+  }
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    color: var(--text-faint);
+    font-size: 10px;
+  }
+  .nav-item.active { color: var(--primary); font-weight: 600; }
+  .nav-item .icon-big { font-size: 20px; }
+
+  /* 侧栏 (C) */
+  .with-rail { flex-direction: row; }
+  .rail {
+    width: 64px;
+    background: var(--surface-2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 0;
+    gap: 4px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--divider);
+  }
+  .rail .rail-item {
+    width: 48px;
+    padding: 8px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    color: var(--text-faint);
+    font-size: 9px;
+    border-radius: 8px;
+  }
+  .rail .rail-item.active {
+    color: var(--primary);
+    background: rgba(124, 154, 126, 0.12);
+    font-weight: 600;
+  }
+  .rail .rail-item .icon-big { font-size: 18px; }
+  .rail-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* 注释气泡 */
+  .annotations {
+    margin-top: 16px;
+    width: 100%;
+    font-size: 12px;
+    color: var(--text-mute);
+    line-height: 1.65;
+  }
+  .annotations li {
+    list-style: none;
+    padding: 6px 0 6px 18px;
+    position: relative;
+  }
+  .annotations li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--primary);
+    font-weight: bold;
+  }
+  .annotations li.con::before {
+    content: '×';
+    color: #c97a6e;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>主界面三方案对比</h1>
+  <p>挑你最喜欢的，或告诉我"哪个的 X 部分 + 哪个的 Y 部分"做混合方案</p>
+</header>
+
+<div class="grid">
+
+  <!-- ============ 方案 A：单 Feed + 过滤芯片 ============ -->
+  <div class="card">
+    <span class="label">方案 A · 最轻</span>
+    <h2>单 Feed + 过滤芯片</h2>
+    <p class="desc">用 chips 替代顶部 Tab，所有过滤平级；FAB 在"全部"时弹底部表单选类目</p>
+
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="appbar">
+        <div class="title">日记 <span class="streak">🔥 7 天</span></div>
+        <div class="actions">
+          <div class="icon">🔍</div>
+          <div class="icon">⚙️</div>
+        </div>
+      </div>
+      <div class="stat-bar">
+        📊 本月 <strong>12 篇</strong> <span class="dot">·</span> <strong>4253 字</strong> <span class="dot">·</span> 活跃 <strong>9 天</strong>
+      </div>
+      <div class="chips">
+        <div class="chip active">全部</div>
+        <div class="chip">日记</div>
+        <div class="chip">项目</div>
+        <div class="chip special">📌 置顶</div>
+        <div class="chip special">📅 本周</div>
+        <div class="chip special">☑ 待办</div>
+      </div>
+      <div class="feed">
+        <div class="section-header">置顶</div>
+        <div class="entry">
+          <div class="row1">
+            <span class="pin">📌</span>
+            <span class="ttl">周末复盘</span>
+            <span class="mood">😊</span>
+          </div>
+          <div class="snippet">这周最大的收获是把那个棘手的代理问题搞定了，今天早上跑步时想通了一些事情……</div>
+          <div class="meta"><span class="badge diary">日记</span> 487 字 · 昨天</div>
+        </div>
+        <div class="entry">
+          <div class="row1">
+            <span class="pin">📌</span>
+            <span class="ttl">diary_app v0.2 发布</span>
+            <span class="mood">🙂</span>
+          </div>
+          <div class="snippet">完成桌面 OAuth + 代理透传，登录链路打通。下一步推进编辑器和导出。</div>
+          <div class="meta"><span class="badge project">项目</span> <span class="badge flag">🚩 里程碑</span> v0.2 · 昨天</div>
+        </div>
+        <div class="section-header">全部</div>
+        <div class="entry">
+          <div class="row1">
+            <span class="ttl">看完《人类简史》</span>
+            <span class="mood">🙂</span>
+          </div>
+          <div class="snippet">作者把人类历史压缩到三次革命的尺度，认知革命对我冲击最大……</div>
+          <div class="meta"><span class="badge diary">日记</span> 312 字 · 3 天前</div>
+        </div>
+        <div class="entry">
+          <div class="row1">
+            <span class="ttl">修复登录卡死 bug</span>
+            <span class="mood">🙂</span>
+          </div>
+          <div class="snippet">原因是 Firebase C++ SDK 不读 Dart 端代理，用 FFI 注入 HTTPS_PROXY 解决。</div>
+          <div class="meta"><span class="badge project">项目</span> v0.1.3 · 3 天前</div>
+        </div>
+        <div class="entry">
+          <div class="row1">
+            <span class="ttl">散步随想</span>
+            <span class="mood">😐</span>
+          </div>
+          <div class="snippet">夜路上想到很多但记不住几个，抓两件先。</div>
+          <div class="meta"><span class="badge diary">日记</span> 156 字 · 5 天前</div>
+        </div>
+      </div>
+      <div class="fab standard">✏️ 新建</div>
+    </div>
+
+    <ul class="annotations">
+      <li>chips 横滑可加无数过滤维度</li>
+      <li>顶部统计条好看又有用</li>
+      <li>整体最像现代主流 App（Bear / Diarium）</li>
+      <li class="con">chips 太多时需要横滑发现</li>
+    </ul>
+  </div>
+
+  <!-- ============ 方案 B：底部导航 ============ -->
+  <div class="card">
+    <span class="label">方案 B · 结构化</span>
+    <h2>底部导航 · 视图维度</h2>
+    <p class="desc">底部 Tab 是<b>视图维度</b>（列表 / 日历 / 项目 / 统计），类目作为顶部过滤器</p>
+
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="appbar">
+        <div class="title">日记</div>
+        <div class="actions">
+          <div class="icon">🔍</div>
+          <div class="icon">⚙️</div>
+        </div>
+      </div>
+      <div class="stat-bar">
+        📊 本月 <strong>12 篇</strong> <span class="dot">·</span> 🔥 已连续 <strong>7 天</strong>
+      </div>
+      <div class="tabs-strip">
+        <div class="tab-btn active">全部</div>
+        <div class="tab-btn">日记</div>
+        <div class="tab-btn">项目</div>
+      </div>
+      <div class="feed" style="padding-top: 12px;">
+        <div class="entry">
+          <div class="row1">
+            <span class="pin">📌</span>
+            <span class="ttl">周末复盘</span>
+            <span class="mood">😊</span>
+          </div>
+          <div class="snippet">这周最大的收获是把那个棘手的代理问题搞定了……</div>
+          <div class="meta"><span class="badge diary">日记</span> 487 字 · 昨天</div>
+        </div>
+        <div class="entry">
+          <div class="row1">
+            <span class="pin">📌</span>
+            <span class="ttl">diary_app v0.2 发布</span>
+            <span class="mood">🙂</span>
+          </div>
+          <div class="snippet">完成桌面 OAuth + 代理透传……</div>
+          <div class="meta"><span class="badge project">项目</span> <span class="badge flag">🚩</span> v0.2 · 昨天</div>
+        </div>
+        <div class="entry">
+          <div class="row1">
+            <span class="ttl">看完《人类简史》</span>
+            <span class="mood">🙂</span>
+          </div>
+          <div class="snippet">认知革命对我冲击最大……</div>
+          <div class="meta"><span class="badge diary">日记</span> 312 字 · 3 天前</div>
+        </div>
+        <div class="entry">
+          <div class="row1">
+            <span class="ttl">修复登录卡死 bug</span>
+            <span class="mood">🙂</span>
+          </div>
+          <div class="snippet">原因是 Firebase C++ SDK 不读 Dart 端代理……</div>
+          <div class="meta"><span class="badge project">项目</span> v0.1.3 · 3 天前</div>
+        </div>
+      </div>
+      <div class="fab bottom-only">✏️ 新建</div>
+      <div class="bottom-nav">
+        <div class="nav-item active">
+          <div class="icon-big">📖</div>
+          列表
+        </div>
+        <div class="nav-item">
+          <div class="icon-big">📅</div>
+          日历
+        </div>
+        <div class="nav-item">
+          <div class="icon-big">📁</div>
+          项目
+        </div>
+        <div class="nav-item">
+          <div class="icon-big">📊</div>
+          统计
+        </div>
+      </div>
+    </div>
+
+    <ul class="annotations">
+      <li>每个底部 Tab 职责单一清晰</li>
+      <li>"项目"独立入口，进项目聚合页</li>
+      <li>日历/统计永远在视野里，鼓励用</li>
+      <li class="con">底部导航占 64px 高度</li>
+      <li class="con">桌面端看着略奇怪</li>
+    </ul>
+  </div>
+
+  <!-- ============ 方案 C：侧栏 ============ -->
+  <div class="card">
+    <span class="label">方案 C · 桌面友好</span>
+    <h2>侧栏导航 · NavigationRail</h2>
+    <p class="desc">桌面端永远显示 NavigationRail，移动端折叠成抽屉；视图维度走侧栏</p>
+
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>● ● ●</span></div>
+      <div class="with-rail" style="flex: 1; display: flex; overflow: hidden;">
+        <div class="rail">
+          <div class="rail-item active">
+            <div class="icon-big">📖</div>
+            列表
+          </div>
+          <div class="rail-item">
+            <div class="icon-big">📅</div>
+            日历
+          </div>
+          <div class="rail-item">
+            <div class="icon-big">📁</div>
+            项目
+          </div>
+          <div class="rail-item">
+            <div class="icon-big">📊</div>
+            统计
+          </div>
+          <div class="rail-item">
+            <div class="icon-big">🔍</div>
+            搜索
+          </div>
+          <div style="flex:1"></div>
+          <div class="rail-item">
+            <div class="icon-big">⚙️</div>
+            设置
+          </div>
+        </div>
+        <div class="rail-content">
+          <div class="appbar" style="padding-top: 0;">
+            <div class="title">日记 <span class="streak">🔥 7</span></div>
+          </div>
+          <div class="stat-bar" style="margin: 0 12px 8px; font-size: 11px; padding: 8px 12px;">
+            <strong>12 篇</strong> · <strong>4253 字</strong>
+          </div>
+          <div class="chips" style="padding: 0 12px 8px;">
+            <div class="chip active">全部</div>
+            <div class="chip">日记</div>
+            <div class="chip">项目</div>
+            <div class="chip special">📌</div>
+          </div>
+          <div class="feed" style="padding: 0 12px 12px;">
+            <div class="entry">
+              <div class="row1">
+                <span class="pin">📌</span>
+                <span class="ttl">周末复盘</span>
+                <span class="mood">😊</span>
+              </div>
+              <div class="snippet">这周最大的收获是把那个棘手的代理问题搞定了……</div>
+              <div class="meta"><span class="badge diary">日记</span> 487 字 · 昨天</div>
+            </div>
+            <div class="entry">
+              <div class="row1">
+                <span class="pin">📌</span>
+                <span class="ttl">v0.2 发布</span>
+                <span class="mood">🙂</span>
+              </div>
+              <div class="snippet">完成桌面 OAuth + 代理透传……</div>
+              <div class="meta"><span class="badge project">项目</span> <span class="badge flag">🚩</span> 昨天</div>
+            </div>
+            <div class="entry">
+              <div class="row1">
+                <span class="ttl">看完《人类简史》</span>
+                <span class="mood">🙂</span>
+              </div>
+              <div class="snippet">认知革命对我冲击最大……</div>
+              <div class="meta"><span class="badge diary">日记</span> 312 字 · 3 天前</div>
+            </div>
+            <div class="entry">
+              <div class="row1">
+                <span class="ttl">修复登录 bug</span>
+                <span class="mood">🙂</span>
+              </div>
+              <div class="snippet">FFI 注入 HTTPS_PROXY……</div>
+              <div class="meta"><span class="badge project">项目</span> 3 天前</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="fab standard">✏️ 新建</div>
+    </div>
+
+    <ul class="annotations">
+      <li>桌面端原生体验</li>
+      <li>视图入口永远可见</li>
+      <li>项目 / 统计 / 搜索 / 设置 都在一列</li>
+      <li class="con">移动端要点开抽屉多一步</li>
+      <li class="con">主内容区宽度被压缩</li>
+    </ul>
+  </div>
+
+</div>
+
+<footer style="max-width: 1280px; margin: 48px auto 0; text-align: center; color: var(--text-faint); font-size: 12px;">
+  <p>· 三方案统一使用 sage green / dusty blue / 暖米白调色 ·</p>
+  <p>· 字体：标题 Georgia 衬线，正文系统无衬线 ·</p>
+</footer>
+
+</body>
+</html>
