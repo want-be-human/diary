@@ -29,10 +29,17 @@ class IsarSearchDataSource {
   }
 
   Future<void> upsert(Entry entry) async {
-    final row = SearchIndex.fromEntry(
-      entry,
-      plainBody: TextUtil.extractPlainText(entry.contentDelta),
-    );
+    // bodyTokens 按类目分支：
+    // - diary  ：Quill Delta 解析出的纯文本
+    // - project：项目名 + 版本号 + 各完成项标题
+    // - todo   ：subtask 标题列表
+    final searchBody = entry.category == EntryCategory.diary
+        ? entry.buildSearchableBody(
+            plainBody: TextUtil.extractPlainText(entry.contentDelta),
+          )
+        : entry.buildSearchableBody();
+
+    final row = SearchIndex.fromEntry(entry, searchableBody: searchBody);
     await _isar.writeTxn(() async {
       // 通过 entryId 唯一索引 upsert。
       // ignore: experimental_member_use

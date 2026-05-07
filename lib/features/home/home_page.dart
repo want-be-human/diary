@@ -11,10 +11,11 @@ import '../../shared/utils/text_util.dart';
 
 /// 首页 v2（方案 A）：
 /// - AppBar：可点击搜索 pill + 设置图标
-/// - 顶部：每日一言卡片（uapis.cn）
-/// - 过滤芯片：全部 / 日记 / 项目
+/// - 顶部：每日一言卡片（hitokoto.cn）
+/// - 过滤芯片：全部 / 日记 / 项目 / 待办
 /// - 列表：Dismissible 卡片，左滑 → 归档（带 Undo）
 /// - 置顶段始终在顶
+/// - 待办/项目：卡片底色按完成态变化
 /// - FAB：当前过滤为 全部 时弹底部表单选类目，否则直接以当前类目新建
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -24,12 +25,13 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  /// 0 = 全部 / 1 = 日记 / 2 = 项目
+  /// 0 = 全部 / 1 = 日记 / 2 = 项目 / 3 = 待办
   int _filter = 0;
 
   EntryCategory? get _currentCategory => switch (_filter) {
         1 => EntryCategory.diary,
         2 => EntryCategory.project,
+        3 => EntryCategory.todo,
         _ => null,
       };
 
@@ -68,10 +70,15 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget? _buildFab(BuildContext context) {
     final cat = _currentCategory;
     if (cat != null) {
+      final label = switch (cat) {
+        EntryCategory.diary => '写日记',
+        EntryCategory.project => '记项目',
+        EntryCategory.todo => '加待办',
+      };
       return FloatingActionButton.extended(
         onPressed: () => context.push('/editor?category=${cat.wireValue}'),
         icon: const Icon(Icons.edit_outlined),
-        label: Text(cat == EntryCategory.diary ? '写日记' : '记项目'),
+        label: Text(label),
       );
     }
     return _ChooseCategoryFab(
@@ -257,6 +264,8 @@ class _FilterChipRow extends StatelessWidget {
           _chip(context, label: '日记', index: 1),
           const SizedBox(width: 8),
           _chip(context, label: '项目', index: 2),
+          const SizedBox(width: 8),
+          _chip(context, label: '待办', index: 3),
         ],
       ),
     );
@@ -318,6 +327,12 @@ class _ChooseCategoryFab extends StatelessWidget {
                 title: const Text('记项目'),
                 subtitle: const Text('版本进度 / 完成项 / 里程碑'),
                 onTap: () => Navigator.of(ctx).pop(EntryCategory.project),
+              ),
+              ListTile(
+                leading: const Icon(Icons.checklist_outlined),
+                title: const Text('加待办'),
+                subtitle: const Text('清单事项 / 勾选完成'),
+                onTap: () => Navigator.of(ctx).pop(EntryCategory.todo),
               ),
               const SizedBox(height: 8),
             ],
@@ -500,11 +515,21 @@ class _EntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final snippet = _snippetOf(entry);
+    final completed = entry.isCompleted;
+    // 完成态变底色：完成 → 浅 surface（中性、像被"归档"），未完成 → tertiaryContainer 浅染。
+    // diary 永远不进入完成态，走默认 Card 颜色。
+    final hasCompletionState = entry.category == EntryCategory.todo ||
+        entry.category == EntryCategory.project;
+    final cardColor = hasCompletionState
+        ? (completed
+            ? scheme.surfaceContainerHighest.withValues(alpha: 0.55)
+            : scheme.tertiaryContainer.withValues(alpha: 0.32))
+        : null;
 
     return Card(
       clipBehavior: Clip.antiAlias,
       margin: EdgeInsets.zero,
+      color: cardColor,
       child: InkWell(
         onTap: () => GoRouter.of(context).push('/entry/${entry.id}'),
         child: Padding(
@@ -519,6 +544,18 @@ class _EntryCard extends StatelessWidget {
                     Icon(Icons.push_pin, size: 16, color: scheme.primary),
                     const SizedBox(width: 6),
                   ],
+                  if (entry.category == EntryCategory.todo) ...[
+                    Icon(
+                      completed
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      size: 16,
+                      color: completed
+                          ? Colors.green
+                          : scheme.onSurface.withValues(alpha: 0.55),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   Expanded(
                     child: Text(
                       entry.title.isEmpty ? '（无标题）' : entry.title,
@@ -526,6 +563,15 @@ class _EntryCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
+                        // todo 完成时标题划线 + 弱化；其它情况保持默认。
+                        decoration:
+                            entry.category == EntryCategory.todo && completed
+                                ? TextDecoration.lineThrough
+                                : null,
+                        color:
+                            entry.category == EntryCategory.todo && completed
+                                ? scheme.onSurface.withValues(alpha: 0.55)
+                                : null,
                       ),
                     ),
                   ),
@@ -536,22 +582,14 @@ class _EntryCard extends StatelessWidget {
                   ],
                 ],
               ),
-              if (snippet.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  snippet,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurface.withValues(alpha: 0.72),
-                    height: 1.4,
-                  ),
-                ),
-              ],
+              ..._bodyForCategory(theme, entry),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  _CategoryBadge(category: entry.category),
+                  _CategoryBadge(
+                    category: entry.category,
+                    completed: completed && hasCompletionState,
+                  ),
                   const SizedBox(width: 8),
                   if (entry.category == EntryCategory.project &&
                       entry.projectMeta?.version.isNotEmpty == true) ...[
@@ -564,7 +602,8 @@ class _EntryCard extends StatelessWidget {
                     const SizedBox(width: 8),
                   ],
                   const Spacer(),
-                  if (entry.wordCount > 0) ...[
+                  if (entry.category == EntryCategory.diary &&
+                      entry.wordCount > 0) ...[
                     Icon(Icons.notes,
                         size: 14,
                         color: scheme.onSurface.withValues(alpha: 0.5)),
@@ -592,40 +631,125 @@ class _EntryCard extends StatelessWidget {
     );
   }
 
-  static String _snippetOf(Entry e) {
-    final plain = TextUtil.extractPlainText(e.contentDelta).trim();
-    if (plain.isEmpty) return '';
-    final flat = plain.replaceAll(RegExp(r'\s+'), ' ');
-    if (flat.length <= 80) return flat;
-    return '${flat.substring(0, 80)}…';
+  /// 卡片中部的"摘要行"。三种类目内容不同：
+  /// - diary  ：Quill 正文前 80 字
+  /// - project：项目名 + 已完成项数
+  /// - todo   ：未完成 / 已完成 计数
+  List<Widget> _bodyForCategory(ThemeData theme, Entry e) {
+    switch (e.category) {
+      case EntryCategory.diary:
+        final plain = TextUtil.extractPlainText(e.contentDelta).trim();
+        if (plain.isEmpty) return const [];
+        final flat = plain.replaceAll(RegExp(r'\s+'), ' ');
+        final snippet = flat.length <= 80 ? flat : '${flat.substring(0, 80)}…';
+        return [
+          const SizedBox(height: 6),
+          Text(
+            snippet,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+              height: 1.4,
+            ),
+          ),
+        ];
+
+      case EntryCategory.project:
+        final pm = e.projectMeta;
+        if (pm == null) return const [];
+        final pieces = <String>[];
+        if (pm.projectName.isNotEmpty) pieces.add(pm.projectName);
+        if (pm.completedItems.isNotEmpty) {
+          pieces.add('完成 ${pm.completedItems.length} 项');
+        }
+        if (pieces.isEmpty) return const [];
+        return [
+          const SizedBox(height: 6),
+          Text(
+            pieces.join(' · '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+            ),
+          ),
+        ];
+
+      case EntryCategory.todo:
+        if (e.subtasks.isEmpty) return const [];
+        final done = e.subtasks.where((t) => t.done).length;
+        final total = e.subtasks.length;
+        return [
+          const SizedBox(height: 6),
+          Text(
+            '$done / $total 已完成',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ];
+    }
   }
 }
 
 class _CategoryBadge extends StatelessWidget {
-  const _CategoryBadge({required this.category});
+  const _CategoryBadge({required this.category, this.completed = false});
   final EntryCategory category;
+
+  /// 项目/待办的派生完成态。完成时徽章右侧追加一个绿色"✓ 完成"小标。
+  final bool completed;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final isProject = category == EntryCategory.project;
-    final label = isProject ? '项目' : '日记';
-    final bg = (isProject ? scheme.tertiary : scheme.secondary)
-        .withValues(alpha: 0.16);
-    final fg = isProject ? scheme.tertiary : scheme.secondary;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: fg,
-              fontWeight: FontWeight.w600,
+    final (label, accent) = switch (category) {
+      EntryCategory.diary => ('日记', scheme.secondary),
+      EntryCategory.project => ('项目', scheme.tertiary),
+      EntryCategory.todo => ('待办', scheme.primary),
+    };
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ),
+        if (completed) ...[
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(8),
             ),
-      ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.check, size: 12, color: Colors.green),
+                const SizedBox(width: 2),
+                Text(
+                  '完成',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Colors.green.shade700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

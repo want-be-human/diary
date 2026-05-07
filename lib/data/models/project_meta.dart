@@ -31,12 +31,45 @@ extension ProjectStatusX on ProjectStatus {
   }
 }
 
+/// 项目"本次完成"列表项：标题 + 可挂多张图。
+class CompletedItem {
+  final String title;
+  final List<String> imageUrls;
+
+  const CompletedItem({
+    required this.title,
+    this.imageUrls = const <String>[],
+  });
+
+  CompletedItem copyWith({String? title, List<String>? imageUrls}) {
+    return CompletedItem(
+      title: title ?? this.title,
+      imageUrls: imageUrls ?? this.imageUrls,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'title': title,
+        'imageUrls': imageUrls,
+      };
+
+  factory CompletedItem.fromMap(Map<String, dynamic> map) {
+    return CompletedItem(
+      title: map['title'] as String? ?? '',
+      imageUrls: (map['imageUrls'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const <String>[],
+    );
+  }
+}
+
 /// 项目日志扩展元数据，仅当 Entry.category == project 时存在。
 class ProjectMeta {
   final String entryId;
   final String projectName;
   final String version;
-  final List<String> completedItems;
+  final List<CompletedItem> completedItems;
   final ProjectStatus status;
 
   /// 是否里程碑节点（首发版本 / 重大功能 / 重要修复）。
@@ -56,7 +89,7 @@ class ProjectMeta {
     String? entryId,
     String? projectName,
     String? version,
-    List<String>? completedItems,
+    List<CompletedItem>? completedItems,
     ProjectStatus? status,
     bool? isMilestone,
   }) {
@@ -74,20 +107,27 @@ class ProjectMeta {
         'entryId': entryId,
         'projectName': projectName,
         'version': version,
-        'completedItems': completedItems,
+        'completedItems': completedItems.map((c) => c.toMap()).toList(),
         'status': status.wireValue,
         'isMilestone': isMilestone,
       };
 
+  /// 兼容老数据：旧版 `completedItems` 是 `List<String>`，
+  /// 新版是 `List<{title, imageUrls}>`。两种都能读。
   factory ProjectMeta.fromMap(Map<String, dynamic> map) {
+    final raw = map['completedItems'] as List? ?? const [];
+    final items = raw.map((e) {
+      if (e is Map) {
+        return CompletedItem.fromMap(Map<String, dynamic>.from(e));
+      }
+      return CompletedItem(title: e.toString());
+    }).toList();
+
     return ProjectMeta(
       entryId: map['entryId'] as String? ?? '',
       projectName: map['projectName'] as String? ?? '',
       version: map['version'] as String? ?? '',
-      completedItems: (map['completedItems'] as List?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const <String>[],
+      completedItems: items,
       status: ProjectStatusX.fromWire(map['status'] as String?),
       isMilestone: map['isMilestone'] as bool? ?? false,
     );

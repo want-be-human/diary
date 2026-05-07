@@ -62,13 +62,17 @@ class SearchIndex {
   SearchIndex();
 
   /// 由 [Entry] 构建索引行。
-  /// [plainBody] 是去掉 Quill Delta 富文本格式后的纯文本。
-  factory SearchIndex.fromEntry(Entry entry, {required String plainBody}) {
+  /// [searchableBody] 是各类目下"可被搜到的正文"——
+  /// - diary  ：Quill Delta 解析后的纯文本
+  /// - project：项目名 + 版本号 + 各完成项标题
+  /// - todo   ：subtask 标题列表
+  /// 由 [Entry.buildSearchableBody] 拼接。
+  factory SearchIndex.fromEntry(Entry entry, {required String searchableBody}) {
     return SearchIndex()
       ..entryId = entry.id
       ..category = entry.category.wireValue
       ..titleTokens = _tokenize(entry.title)
-      ..bodyTokens = _tokenize(plainBody)
+      ..bodyTokens = _tokenize(searchableBody)
       ..projectName = entry.projectMeta?.projectName.toLowerCase()
       ..tags = entry.tags.map((t) => t.toLowerCase()).join(' ')
       ..updatedAt = entry.updatedAt

@@ -7,7 +7,7 @@ import '../../data/services/auth_service.dart';
 import '../../features/archive/archive_page.dart';
 import '../../features/auth/login_page.dart';
 import '../../features/detail/detail_page.dart';
-import '../../features/editor/editor_page.dart';
+import '../../features/editor/editor_dispatcher.dart';
 import '../../features/home/home_page.dart';
 import '../../features/search/search_page.dart';
 import '../../features/settings/settings_page.dart';
@@ -40,7 +40,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/editor',
         builder: (context, state) {
           final qp = state.uri.queryParameters;
-          return EditorPage(
+          return EditorDispatcher(
             entryId: qp['id'],
             initialCategory: _parseCategory(qp['category']),
           );
@@ -73,6 +73,8 @@ EntryCategory? _parseCategory(String? raw) {
       return EntryCategory.diary;
     case 'project':
       return EntryCategory.project;
+    case 'todo':
+      return EntryCategory.todo;
     default:
       return null;
   }

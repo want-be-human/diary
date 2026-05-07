@@ -7,15 +7,28 @@ import 'project_meta.dart';
 import 'task_item.dart';
 import 'weather_snapshot.dart';
 
-enum EntryCategory { diary, project }
+enum EntryCategory { diary, project, todo }
 
 extension EntryCategoryX on EntryCategory {
-  String get wireValue => name; // 'diary' | 'project'
+  String get wireValue => name; // 'diary' | 'project' | 'todo'
+
+  String get displayLabel {
+    switch (this) {
+      case EntryCategory.diary:
+        return '日记';
+      case EntryCategory.project:
+        return '项目';
+      case EntryCategory.todo:
+        return '待办';
+    }
+  }
 
   static EntryCategory fromWire(String? raw) {
     switch (raw) {
       case 'project':
         return EntryCategory.project;
+      case 'todo':
+        return EntryCategory.todo;
       case 'diary':
       default:
         return EntryCategory.diary;
@@ -119,6 +132,42 @@ class Entry {
       contentDelta: delta,
       wordCount: TextUtil.countWordsInDelta(delta),
     );
+  }
+
+  /// 派生：是否"完成"。语义按类目分支：
+  /// - todo  ：所有 subtask 都勾上时为 true（无 subtask 时为 false）
+  /// - project：projectMeta.status == done
+  /// - diary ：永远 false（日记没有完成态）
+  bool get isCompleted {
+    switch (category) {
+      case EntryCategory.todo:
+        return subtasks.isNotEmpty && subtasks.every((s) => s.done);
+      case EntryCategory.project:
+        return projectMeta?.status == ProjectStatus.done;
+      case EntryCategory.diary:
+        return false;
+    }
+  }
+
+  /// 给搜索索引用：把 entry 里"可被搜到的文本"拼成一个串。
+  /// - diary  ：调用方传入 `plainBody`（从 Quill Delta 解析出的纯文本）
+  /// - project：projectName + version + completedItems[*].title
+  /// - todo   ：subtasks[*].text
+  String buildSearchableBody({String plainBody = ''}) {
+    switch (category) {
+      case EntryCategory.diary:
+        return plainBody;
+      case EntryCategory.project:
+        final pm = projectMeta;
+        if (pm == null) return '';
+        return [
+          pm.projectName,
+          pm.version,
+          ...pm.completedItems.map((c) => c.title),
+        ].where((s) => s.isNotEmpty).join(' ');
+      case EntryCategory.todo:
+        return subtasks.map((s) => s.text).where((s) => s.isNotEmpty).join(' ');
+    }
   }
 
   /// 写入 Firestore 的 Map（DateTime 转为 Timestamp）。

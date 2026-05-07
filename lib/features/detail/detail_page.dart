@@ -10,12 +10,15 @@ import '../../data/models/project_meta.dart';
 import '../../data/models/task_item.dart';
 import '../../data/repositories/entry_repository_impl.dart';
 import '../../shared/utils/date_util.dart';
+import '../editor/widgets/image_attachment_grid.dart';
 
-/// 详情只读页 v1：
+/// 详情只读页：
 /// - 顶部元数据条（类目 / 心情 / 字数 / 时间 / 置顶）
-/// - 富文本只读渲染（Quill）
-/// - 子任务清单（可勾选，写回 Firestore）
-/// - 项目元数据面板（仅 project）
+/// - 正文按 category 分支：
+///     diary  → Quill 只读渲染
+///     project → 模板字段只读视图（项目名 / 版本 / 状态 / 里程碑 / 完成项）
+///     todo   → 子任务清单（可勾选 + 划线 + 图片附件）
+/// - 整体底色按完成态变化（仅 project / todo）
 /// - AppBar 操作：编辑 / 置顶切换 / 删除（带确认）
 class DetailPage extends ConsumerWidget {
   const DetailPage({super.key, required this.entryId});
@@ -106,7 +109,7 @@ class _DetailViewState extends ConsumerState<_DetailView> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('删除这条日记？'),
+        title: const Text('删除这条记录？'),
         content: const Text('删除后无法恢复，相关 Isar 搜索索引会一并移除。'),
         actions: [
           TextButton(
@@ -152,9 +155,20 @@ class _DetailViewState extends ConsumerState<_DetailView> {
     final entry = widget.entry;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final completed = entry.isCompleted;
+    // 完成态背景：仅 project / todo 生效。
+    final hasCompletionState = entry.category == EntryCategory.todo ||
+        entry.category == EntryCategory.project;
+    final bgColor = hasCompletionState
+        ? (completed
+            ? scheme.surfaceContainerHigh.withValues(alpha: 0.6)
+            : scheme.tertiaryContainer.withValues(alpha: 0.18))
+        : scheme.surface;
 
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
+        backgroundColor: bgColor,
         title: const Text('详情'),
         actions: [
           IconButton(
@@ -213,43 +227,48 @@ class _DetailViewState extends ConsumerState<_DetailView> {
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
         children: [
           // 标题
-          Text(
-            entry.title.isEmpty ? '（无标题）' : entry.title,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (entry.category == EntryCategory.todo) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, right: 8),
+                  child: Icon(
+                    completed
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    color: completed
+                        ? Colors.green
+                        : scheme.onSurface.withValues(alpha: 0.55),
+                  ),
+                ),
+              ],
+              Expanded(
+                child: Text(
+                  entry.title.isEmpty ? '（无标题）' : entry.title,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    decoration:
+                        entry.category == EntryCategory.todo && completed
+                            ? TextDecoration.lineThrough
+                            : null,
+                    color: entry.category == EntryCategory.todo && completed
+                        ? scheme.onSurface.withValues(alpha: 0.55)
+                        : null,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
 
-          // 元数据徽章行
           _MetaRow(entry: entry),
           const SizedBox(height: 18),
           const Divider(height: 1),
           const SizedBox(height: 12),
 
-          // 富文本只读
-          // key 用 id+updatedAt：编辑保存后 updatedAt 变，强制重建 QuillController
-          _QuillReadOnly(
-            key: ValueKey('${entry.id}-${entry.updatedAt.millisecondsSinceEpoch}'),
-            deltaJson: entry.contentDelta,
-          ),
-
-          // 子任务
-          if (entry.subtasks.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            _SubtaskPanel(
-              subtasks: entry.subtasks,
-              busy: _busy,
-              onToggle: _toggleSubtask,
-            ),
-          ],
-
-          // 项目元数据
-          if (entry.category == EntryCategory.project &&
-              entry.projectMeta != null) ...[
-            const SizedBox(height: 24),
-            _ProjectMetaPanel(meta: entry.projectMeta!),
-          ],
+          // 正文按类目分支
+          ..._bodyForCategory(entry),
 
           const SizedBox(height: 24),
           // 创建/更新时间
@@ -265,6 +284,40 @@ class _DetailViewState extends ConsumerState<_DetailView> {
       ),
     );
   }
+
+  List<Widget> _bodyForCategory(Entry entry) {
+    switch (entry.category) {
+      case EntryCategory.diary:
+        return [
+          _QuillReadOnly(
+            key: ValueKey(
+                '${entry.id}-${entry.updatedAt.millisecondsSinceEpoch}'),
+            deltaJson: entry.contentDelta,
+          ),
+        ];
+      case EntryCategory.project:
+        return [
+          _ProjectMetaPanel(
+            meta: entry.projectMeta ??
+                ProjectMeta(
+                  entryId: entry.id,
+                  projectName: '',
+                  version: '',
+                  completedItems: const [],
+                  status: ProjectStatus.inProgress,
+                ),
+          ),
+        ];
+      case EntryCategory.todo:
+        return [
+          _SubtaskPanel(
+            subtasks: entry.subtasks,
+            busy: _busy,
+            onToggle: _toggleSubtask,
+          ),
+        ];
+    }
+  }
 }
 
 class _MetaRow extends StatelessWidget {
@@ -277,13 +330,12 @@ class _MetaRow extends StatelessWidget {
     final scheme = theme.colorScheme;
     final children = <Widget>[];
 
-    // 类目
-    final isProject = entry.category == EntryCategory.project;
-    children.add(_chip(
-      context,
-      label: isProject ? '项目' : '日记',
-      color: isProject ? scheme.tertiary : scheme.secondary,
-    ));
+    final (catLabel, catColor) = switch (entry.category) {
+      EntryCategory.diary => ('日记', scheme.secondary),
+      EntryCategory.project => ('项目', scheme.tertiary),
+      EntryCategory.todo => ('待办', scheme.primary),
+    };
+    children.add(_chip(context, label: catLabel, color: catColor));
 
     if (entry.mood != null) {
       children.add(_chip(
@@ -314,12 +366,15 @@ class _MetaRow extends StatelessWidget {
       ));
     }
 
-    children.add(_chip(
-      context,
-      leading: const Icon(Icons.notes, size: 14),
-      label: '${entry.wordCount} 字',
-      color: scheme.onSurface.withValues(alpha: 0.7),
-    ));
+    // 字数仅对 diary 有意义。
+    if (entry.category == EntryCategory.diary) {
+      children.add(_chip(
+        context,
+        leading: const Icon(Icons.notes, size: 14),
+        label: '${entry.wordCount} 字',
+        color: scheme.onSurface.withValues(alpha: 0.7),
+      ));
+    }
 
     children.add(_chip(
       context,
@@ -452,6 +507,19 @@ class _SubtaskPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (subtasks.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Text(
+            '清单为空，点击右上角"编辑"添加事项',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+          ),
+        ),
+      );
+    }
     final done = subtasks.where((t) => t.done).length;
     final total = subtasks.length;
     final progress = total == 0 ? 0.0 : done / total;
@@ -462,7 +530,7 @@ class _SubtaskPanel extends StatelessWidget {
         Row(
           children: [
             Text(
-              '子任务',
+              '清单',
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -485,22 +553,51 @@ class _SubtaskPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        ...subtasks.map((t) => CheckboxListTile(
-              value: t.done,
-              onChanged: busy ? null : (_) => onToggle(t),
-              title: Text(
-                t.text,
-                style: t.done
-                    ? theme.textTheme.bodyMedium?.copyWith(
-                        decoration: TextDecoration.lineThrough,
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.5),
-                      )
-                    : theme.textTheme.bodyMedium,
+        ...subtasks.map((t) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Checkbox(
+                          value: t.done,
+                          onChanged:
+                              busy ? null : (_) => onToggle(t),
+                        ),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Text(
+                            t.text,
+                            style: t.done
+                                ? theme.textTheme.bodyMedium?.copyWith(
+                                    decoration: TextDecoration.lineThrough,
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.5),
+                                  )
+                                : theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (t.imageUrls.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 48, top: 4),
+                      child: ImageAttachmentGrid(
+                        urls: t.imageUrls,
+                        // 详情页只读：onChanged 收到改动也不持久化（详情不应改图）。
+                        // 真正的增删走"编辑"页。
+                        onChanged: (_) {},
+                      ),
+                    ),
+                ],
               ),
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
             )),
       ],
     );
@@ -568,12 +665,28 @@ class _ProjectMetaPanel extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             ...meta.completedItems.map((item) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('• '),
-                      Expanded(child: Text(item)),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 2),
+                            child: Text('• '),
+                          ),
+                          Expanded(child: Text(item.title)),
+                        ],
+                      ),
+                      if (item.imageUrls.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 14, top: 4),
+                          child: ImageAttachmentGrid(
+                            urls: item.imageUrls,
+                            onChanged: (_) {},
+                          ),
+                        ),
                     ],
                   ),
                 )),
