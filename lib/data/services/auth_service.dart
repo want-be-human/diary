@@ -37,12 +37,18 @@ class AuthService {
   ];
 
   static const String _kRememberedEmail = 'auth.remembered_email';
+  static const String _kDesktopRefreshToken = 'auth.desktop_refresh_token';
 
   final FirebaseAuth _firebaseAuth;
   final GoogleSignIn _googleSignIn;
 
   /// 桌面 Google 登录的取消信号；点击 UI 上的"取消"会 complete 它。
   Completer<void>? _desktopGoogleCancel;
+
+  /// 桌面端 Google 凭证缓存：登录成功后存这里，供 [getAuthedClient] 反复构建
+  /// 自动续期的 http.Client（用于 Drive API 上传等）。
+  /// 重启 App 时会从 SharedPreferences 的 refresh_token 恢复一次。
+  gauth.AccessCredentials? _desktopCreds;
 
   Stream<User?> authStateChanges() => _firebaseAuth.authStateChanges();
   User? get currentUser => _firebaseAuth.currentUser;
@@ -125,6 +131,13 @@ class AuthService {
       if (idToken == null) {
         throw StateError('Google 未返回 idToken — 检查 OAuth scopes 是否包含 openid。');
       }
+      // 持久化：内存里留一份给 Drive 上传用，refresh_token 写到 prefs 让 App 重启后还能续期。
+      _desktopCreds = credentials;
+      final rt = credentials.refreshToken;
+      if (rt != null && rt.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_kDesktopRefreshToken, rt);
+      }
       final firebaseCred = GoogleAuthProvider.credential(
         idToken: idToken,
         accessToken: credentials.accessToken.data,
@@ -199,10 +212,85 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    _desktopCreds = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kDesktopRefreshToken);
     await Future.wait([
       _firebaseAuth.signOut(),
       _googleSignIn.signOut().catchError((_) => null),
     ]);
+  }
+
+  // ===== Drive API 用的 authed http.Client =====
+
+  /// 返回一个已经带 Google OAuth Authorization 头的 http.Client，
+  /// 调用方拿到后可以直接喂给 `drive_v3.DriveApi(client)`。
+  /// 未登录或 scope 不足时返回 null。
+  ///
+  /// **调用方拿到后必须 close()**——内部会带一个 proxied http.Client，
+  /// 不 close 会泄漏 socket。
+  Future<http.Client?> getAuthedClient() async {
+    final isDesktop = defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+
+    if (isDesktop) {
+      // 内存里没有就尝试从 prefs 的 refresh_token 恢复一次。
+      var creds = _desktopCreds ?? await _restoreDesktopCreds();
+      if (creds == null) return null;
+      _desktopCreds = creds;
+
+      final clientId = gauth.ClientId(
+        OAuthConfig.desktopClientId,
+        OAuthConfig.desktopClientSecret,
+      );
+      final base = _createProxiedHttpClient();
+      // autoRefreshingClient 会在 access token 过期时自动用 refresh token 续期。
+      // close() 会把 base 一起 close 掉。
+      return gauth.autoRefreshingClient(clientId, creds, base);
+    }
+
+    // Mobile：google_sign_in 自己管理 token；从 currentUser / silent sign-in 拿 headers。
+    var account = _googleSignIn.currentUser;
+    account ??= await _googleSignIn.signInSilently();
+    if (account == null) return null;
+    final headers = await account.authHeaders;
+    return _AuthHeaderClient(headers);
+  }
+
+  /// 从 SharedPreferences 的 refresh_token 重建一份 AccessCredentials。
+  /// 没存过 / OAuth 未配置 / 网络错误时返回 null。
+  Future<gauth.AccessCredentials?> _restoreDesktopCreds() async {
+    if (!OAuthConfig.isDesktopConfigured) return null;
+    final prefs = await SharedPreferences.getInstance();
+    final rt = prefs.getString(_kDesktopRefreshToken);
+    if (rt == null || rt.isEmpty) return null;
+
+    final clientId = gauth.ClientId(
+      OAuthConfig.desktopClientId,
+      OAuthConfig.desktopClientSecret,
+    );
+    final base = _createProxiedHttpClient();
+    try {
+      // 构造一个"已过期的占位 access token"+真实 refresh token 的 stub，
+      // refreshCredentials 会用 refresh_token 走一次刷新拿到全新凭证。
+      final stub = gauth.AccessCredentials(
+        gauth.AccessToken(
+          'Bearer',
+          '',
+          DateTime.now().toUtc().subtract(const Duration(minutes: 1)),
+        ),
+        rt,
+        _desktopScopes,
+      );
+      return await gauth.refreshCredentials(clientId, stub, base);
+    } catch (_) {
+      // refresh token 可能已被 revoke / 过期；清掉，让用户重新登录。
+      await prefs.remove(_kDesktopRefreshToken);
+      return null;
+    } finally {
+      base.close();
+    }
   }
 
   // ===== 记住邮箱（仅记账号，不存密码；会话持久化由 Firebase Auth 自身负责）=====
@@ -219,6 +307,26 @@ class AuthService {
   Future<String?> getRememberedEmail() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_kRememberedEmail);
+  }
+}
+
+/// 给 Android 端的 google_sign_in `authHeaders` 包一层 BaseClient，
+/// 让它能像 googleapis_auth 的 authedClient 一样直接喂给 `drive_v3.DriveApi`。
+class _AuthHeaderClient extends http.BaseClient {
+  _AuthHeaderClient(this._headers);
+  final Map<String, String> _headers;
+  final http.Client _inner = http.Client();
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    request.headers.addAll(_headers);
+    return _inner.send(request);
+  }
+
+  @override
+  void close() {
+    _inner.close();
+    super.close();
   }
 }
 

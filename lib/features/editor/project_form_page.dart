@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,10 +7,17 @@ import 'package:go_router/go_router.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/project_meta.dart';
 import '../../data/repositories/entry_repository_impl.dart';
+import '../../data/services/auth_service.dart';
+import '../../data/services/image_upload_service.dart';
 import 'widgets/image_attachment_grid.dart';
 
 /// 项目类目专用编辑器：纯结构化模板，无 Quill 富文本。
 /// 字段：标题 / 项目名 / 版本 / 状态 / 里程碑 / "本次完成"列表（每项可挂图）。
+///
+/// 图片上传走"方案 2 - 预生成 docId"：
+/// initState 立刻 `repo.newId()` 拿到将来真正会写入的 ID，挂图直接传到
+/// `users/{uid}/entries/{id}/images/`，保存时只 `set` 同一个文档，不需要 move。
+/// dispose-without-save 时把本会话新增的图片清掉，避免 Storage 孤儿。
 class ProjectFormPage extends ConsumerStatefulWidget {
   const ProjectFormPage({super.key, this.entryId});
 
@@ -26,10 +35,22 @@ class _ProjectFormPageState extends ConsumerState<ProjectFormPage> {
   bool _isMilestone = false;
   final List<_CompletedRow> _items = [];
 
+  late final String _entryId; // 新建：repo.newId() 预生成；编辑：widget.entryId
   Entry? _loaded;
   bool _loading = true;
   bool _saving = false;
+  bool _savedOk = false; // dispose 时区分是 saved 离开还是放弃离开
   String? _error;
+  int _uploadingRow = -1; // 当前正在上传的行 index（-1 = 无）
+
+  /// 进入页面时已经存在的图片 URL 集合：删除这些要等 save 才落 Storage。
+  final Set<String> _originalUrls = {};
+
+  /// 本次会话新加的 URL 集合：dispose-without-save 时要清掉。
+  final Set<String> _addedUrls = {};
+
+  /// 本次会话从原始集合里删掉的 URL：save 成功后清掉它们。
+  final Set<String> _removedUrls = {};
 
   bool get _isNew => widget.entryId == null;
 
@@ -40,21 +61,25 @@ class _ProjectFormPageState extends ConsumerState<ProjectFormPage> {
   }
 
   Future<void> _bootstrap() async {
-    if (_isNew) {
-      _items.add(_CompletedRow.empty());
-      setState(() => _loading = false);
-      return;
-    }
     final repo = ref.read(entryRepositoryProvider);
     if (repo == null) {
       setState(() {
-        _error = '未登录，无法加载条目';
+        _error = '未登录，无法进入编辑';
         _loading = false;
       });
       return;
     }
+
+    if (_isNew) {
+      _entryId = repo.newId();
+      _items.add(_CompletedRow.empty());
+      setState(() => _loading = false);
+      return;
+    }
+
+    _entryId = widget.entryId!;
     try {
-      final entry = await repo.findById(widget.entryId!);
+      final entry = await repo.findById(_entryId);
       if (entry == null) {
         if (!mounted) return;
         setState(() {
@@ -75,6 +100,9 @@ class _ProjectFormPageState extends ConsumerState<ProjectFormPage> {
           ..clear()
           ..addAll(meta.completedItems
               .map((c) => _CompletedRow.from(c.title, c.imageUrls)));
+        for (final c in meta.completedItems) {
+          _originalUrls.addAll(c.imageUrls);
+        }
       }
       if (_items.isEmpty) _items.add(_CompletedRow.empty());
       if (!mounted) return;
@@ -96,7 +124,60 @@ class _ProjectFormPageState extends ConsumerState<ProjectFormPage> {
     for (final r in _items) {
       r.dispose();
     }
+    // 用户没保存就走人 → 把本次新上传的图清掉，免得 Storage 留孤儿。
+    if (!_savedOk && _addedUrls.isNotEmpty) {
+      final uploader = ref.read(imageUploadServiceProvider);
+      for (final url in _addedUrls) {
+        // best-effort，错误吞掉。
+        unawaited(uploader.deleteByUrl(url));
+      }
+    }
     super.dispose();
+  }
+
+  Future<void> _pickFor(int rowIndex) async {
+    if (_uploadingRow != -1) return;
+    final user = ref.read(authStateProvider).asData?.value;
+    if (user == null) return;
+    setState(() => _uploadingRow = rowIndex);
+    try {
+      final url = await ref
+          .read(imageUploadServiceProvider)
+          .pickAndUpload(uid: user.uid, entryId: _entryId);
+      if (url != null && mounted) {
+        setState(() {
+          _items[rowIndex].imageUrls = [..._items[rowIndex].imageUrls, url];
+          _addedUrls.add(url);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('上传失败：$e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingRow = -1);
+    }
+  }
+
+  void _removeFor(int rowIndex, int urlIndex) {
+    final row = _items[rowIndex];
+    final url = row.imageUrls[urlIndex];
+    setState(() {
+      row.imageUrls = [...row.imageUrls]..removeAt(urlIndex);
+    });
+    if (_originalUrls.contains(url)) {
+      // 编辑前就已存在的图：先记下，等 save 成功后再去 Storage 删
+      // （万一用户取消编辑，这张图还要还原回原 entry）。
+      _removedUrls.add(url);
+    } else {
+      // 本次会话刚上传的图：直接走人，立刻清 Storage。
+      _addedUrls.remove(url);
+      unawaited(
+        ref.read(imageUploadServiceProvider).deleteByUrl(url),
+      );
+    }
   }
 
   Future<void> _save() async {
@@ -123,8 +204,8 @@ class _ProjectFormPageState extends ConsumerState<ProjectFormPage> {
 
     try {
       if (_isNew) {
-        final draft = Entry(
-          id: '',
+        await repo.create(Entry(
+          id: _entryId, // 用预生成 ID，跟图片路径里的 ID 一致
           title: title,
           contentDelta: '',
           category: EntryCategory.project,
@@ -133,23 +214,15 @@ class _ProjectFormPageState extends ConsumerState<ProjectFormPage> {
           updatedAt: now,
           mediaUrls: const [],
           wordCount: 0,
-          // entryId 在 create 后由 datasource 回填，这里先放占位串。
           projectMeta: ProjectMeta(
-            entryId: '',
+            entryId: _entryId,
             projectName: _projectCtrl.text.trim(),
             version: _versionCtrl.text.trim(),
             completedItems: completed,
             status: _status,
             isMilestone: _isMilestone,
           ),
-        );
-        final saved = await repo.create(draft);
-        // create 之后把 projectMeta.entryId 补回真实 docId。
-        await repo.update(
-          saved.copyWith(
-            projectMeta: saved.projectMeta?.copyWith(entryId: saved.id),
-          ),
-        );
+        ));
       } else {
         final base = _loaded!;
         final meta = (base.projectMeta ??
@@ -167,15 +240,23 @@ class _ProjectFormPageState extends ConsumerState<ProjectFormPage> {
           status: _status,
           isMilestone: _isMilestone,
         );
-        await repo.update(
-          base.copyWith(
-            title: title,
-            category: EntryCategory.project,
-            projectMeta: meta,
-            updatedAt: now,
-          ),
-        );
+        await repo.update(base.copyWith(
+          title: title,
+          category: EntryCategory.project,
+          projectMeta: meta,
+          updatedAt: now,
+        ));
       }
+
+      _savedOk = true;
+      // 用户编辑期间删除的旧图：写入成功后再去 Storage 删。
+      if (_removedUrls.isNotEmpty) {
+        final uploader = ref.read(imageUploadServiceProvider);
+        for (final url in _removedUrls) {
+          unawaited(uploader.deleteByUrl(url));
+        }
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('已保存')),
@@ -377,6 +458,12 @@ class _ProjectFormPageState extends ConsumerState<ProjectFormPage> {
                           icon: const Icon(Icons.close, size: 18),
                           tooltip: '删除',
                           onPressed: () {
+                            // 删除整行也要把行上的图标记成"待清理"。
+                            for (var idx = row.imageUrls.length - 1;
+                                idx >= 0;
+                                idx--) {
+                              _removeFor(i, idx);
+                            }
                             setState(() {
                               row.dispose();
                               _items.removeAt(i);
@@ -392,8 +479,9 @@ class _ProjectFormPageState extends ConsumerState<ProjectFormPage> {
                       padding: const EdgeInsets.only(left: 30, top: 4),
                       child: ImageAttachmentGrid(
                         urls: row.imageUrls,
-                        onChanged: (urls) =>
-                            setState(() => row.imageUrls = urls),
+                        uploading: _uploadingRow == i,
+                        onAdd: () => _pickFor(i),
+                        onRemove: (urlIdx) => _removeFor(i, urlIdx),
                       ),
                     ),
                   ],

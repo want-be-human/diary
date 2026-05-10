@@ -27,10 +27,11 @@
 ## 功能需求
 
 ### 核心功能
-1. **日记分类**：支持两种类型
-   - `diary`：普通日常日记
-   - `project`：项目更新日志（有扩展字段）
-2. **富文本编辑**：正文中可插入图片（Firebase Storage）和视频（Google Drive 链接，内嵌播放）
+1. **日记分类**：支持三种类型
+   - `diary`：普通日常日记（Quill 富文本）
+   - `project`：项目更新日志（**模板表单**，固定字段不可改：项目名 / 版本 / 状态 / 里程碑 / 完成项列表，每条完成项可挂图）
+   - `todo`：待办事项（**模板表单**，标题 + subtask 列表，每条可勾选画线 + 挂图；所有 subtask 勾上则整条派生为"完成"）
+2. **富文本编辑**：仅 `diary` 走 Quill 富文本；`project` / `todo` 是结构化模板，禁止富文本以保证字段可被聚合统计
 3. **深色/浅色模式**：系统跟随 + 手动切换，UI 风格柔和淡雅
 4. **全文搜索**：支持按标题和正文内容查询，使用 Isar 本地索引；可叠加心情 / 日期区间 / 标签筛选
 5. **多视图浏览**：首页可切换三种视图
@@ -50,26 +51,37 @@
 11. **双端同步**：Firebase 离线持久化，断网可用，联网自动同步
 12. **登录方式**：Google 一键登录（Android 用 Play Services，Windows 用 OAuth2 桌面流程）+ 邮箱密码（带"记住邮箱"），离线时正常使用本地缓存
 13. **归档**：左滑卡片归档（带 Undo），归档条目从主列表消失但保留在"归档"页可还原；与"删除"区分（归档可逆，删除不可逆）
-14. **每日一言**：首页顶部展示一句格言，数据源 [UAPI `/api/v1/saying`](https://uapis.cn/api/v1/saying)，按天缓存到 SharedPreferences，点击卡片重新拉取
+14. **每日一言**：首页顶部展示一句格言，数据源 [hitokoto `https://v1.hitokoto.cn/`](https://developer.hitokoto.cn/sentence/)（不传 `c` 参数 → 后端随机选类型），按天缓存到 SharedPreferences，点击卡片重新拉取
 15. **快捷搜索栏**：首页 AppBar 中央是搜索 pill，点击进入搜索页（替代独立搜索图标按钮）
+16. **派生完成态**：`project` / `todo` 卡片底色按完成态变化——
+    - 完成（todo: 全勾上 / project: status==done）→ 中性 `surfaceContainerHighest` 浅染 + 标题划线（todo）
+    - 未完成 → `tertiaryContainer` 浅染
+    - `diary` 永远走默认色，无完成概念
 
 ### 项目日志扩展字段（仅 category = project 时显示）
 ```
-projectName: String           // 项目名称
-version: String               // 版本号，如 v1.2.0
-completedItems: List<String>  // 本次完成内容列表（描述性，与 subtasks 区分）
-status: Enum                  // in_progress | done
-isMilestone: bool             // 是否里程碑（首发版本 / 重大功能等），影响项目时间轴渲染
+projectName: String                 // 项目名称
+version: String                     // 版本号，如 v1.2.0
+completedItems: List<CompletedItem> // 本次完成内容列表，每条 = { title, imageUrls[] }
+status: Enum                        // in_progress | done
+isMilestone: bool                   // 是否里程碑（首发版本 / 重大功能等），影响项目时间轴渲染
 ```
 
 **项目聚合页**：按 `projectName` 自动归集所有相关 entry，呈现为：
 - 项目卡列表（项目名 / 最新版本 / 状态 / 条目数 / 最近更新时间）
 - 项目详情页：里程碑时间轴（`isMilestone == true` 节点放大显示）+ 全部相关条目倒序列表
 
-**子任务清单**（任意 entry 都可加，与 `completedItems` 区分用途）：
-- 勾选式 todo（`text` + `done`），编辑器内可增删改排序
-- 详情页展示进度条："3 / 7 完成"
-- 不参与全文搜索索引
+### 待办事项字段（仅 category = todo 时显示）
+
+只有"标题"和"subtasks"两栏，模板不可扩展（保证后续聚合页能机械化处理）。
+```
+subtasks: List<TaskItem>      // 每条 = { id, text, done, imageUrls[] }
+```
+- 编辑器：行内勾选切换 `done`，文本上自动加划线，可挂图
+- 详情页：进度条 "3 / 7"；勾选直接持久化到 Firestore
+- 派生 `isCompleted = subtasks.isNotEmpty && subtasks.every(.done)`，影响首页 / 详情页底色
+
+**子任务清单**（仅 `todo` 类目使用；老的"任意 entry 都可加 subtasks"语义已废弃，diary/project 不再展示 subtasks 面板）。
 
 ---
 
@@ -81,7 +93,7 @@ class Entry {
   String id;
   String title;
   String contentDelta;       // Quill Delta JSON 字符串
-  EntryCategory category;    // diary | project
+  EntryCategory category;    // diary | project | todo
   List<String> tags;
   DateTime createdAt;
   DateTime updatedAt;
@@ -128,12 +140,21 @@ class WeatherSnapshot {
 }
 ```
 
-### TaskItem（子任务条目）
+### TaskItem（子任务条目，仅 todo 类目使用）
 ```dart
 class TaskItem {
   String id;
   String text;
   bool done;
+  List<String> imageUrls;  // 该 subtask 挂的图片（截图 / 凭证），默认空
+}
+```
+
+### CompletedItem（项目"本次完成"条目）
+```dart
+class CompletedItem {
+  String title;
+  List<String> imageUrls;  // 这条完成项挂的截图，默认空
 }
 ```
 
@@ -143,7 +164,7 @@ class ProjectMeta {
   String entryId;
   String projectName;
   String version;
-  List<String> completedItems;
+  List<CompletedItem> completedItems;  // 旧 List<String> 自动迁移到 {title, imageUrls:[]}
   ProjectStatus status;  // inProgress | done
   bool isMilestone;      // 是否里程碑节点
 }
@@ -237,12 +258,16 @@ App
 │   │   ├── 中央：搜索 pill（点击 → /search 搜索页）
 │   │   └── 右侧：设置图标
 │   ├── 每日一言卡片（顶部）
-│   │   ├── 调用 UAPI `/api/v1/saying`，结果 `{"text": "..."}`
+│   │   ├── 调用 hitokoto `https://v1.hitokoto.cn/`（不传 c 参数 → 随机类型）
+│   │   ├── 字段 `hitokoto`（句子）+ 拼上 `from_who` / `from`（出处）
 │   │   ├── 按"YYYY-MM-DD"键缓存到 SharedPreferences，每日换一句
 │   │   ├── 失败/无数据时显示骨架或重试提示
-│   │   └── 点击卡片重新拉取
-│   ├── 过滤芯片：[全部] [日记] [项目]
+│   │   └── 点击卡片强制重新拉取
+│   ├── 过滤芯片：[全部] [日记] [项目] [待办]
 │   │   └── "全部"是默认选中，无 stats / streak 等额外占位
+│   ├── 卡片底色按完成态变化（仅 project / todo 生效）
+│   │   ├── 完成 → surfaceContainerHighest 浅染 + 标题划线（todo）
+│   │   └── 未完成 → tertiaryContainer 浅染
 │   ├── 三种视图切换（v3 添加；目前仅列表）：
 │   │   ├── 列表：卡片纵向滚动，置顶条目固定在顶部，带入场动画
 │   │   ├── 时间线：垂直时间轴，按"日 → 月"两级分组
@@ -251,25 +276,33 @@ App
 │   │   ├── 左滑（endToStart）→ 归档，SnackBar 出现"撤销"按钮（4s）
 │   │   └── 长按进入多选模式（用于批量导出）
 │   └── 浮动新建按钮：
-│       ├── 当前过滤为"日记"或"项目"时，直接以该类目新建（"写日记" / "记项目"）
-│       └── 当前过滤为"全部"时，弹底部表单让用户选类目
-├── 编辑页
-│   ├── 富文本编辑器（flutter_quill）
-│   ├── 工具栏：加粗 / 斜体 / 标题 / 列表 / 勾选列表 / 插入图片 / 插入视频
-│   ├── 元数据栏（紧贴标题下方折叠条）：
-│   │   ├── 心情选择器（5 档 emoji + 自定义短词）
-│   │   ├── 标签输入
-│   │   ├── 位置：移动端"一键定位"按钮 + 反向地理编码；桌面端手填
-│   │   ├── 天气：默认隐藏自动抓取，可点开手动覆盖
-│   │   └── 置顶切换
-│   ├── 子任务面板（可展开）：勾选式 todo，进度自动计算
-│   ├── 字数实时显示（角标）
-│   └── 项目字段面板（category = project 时展开）：
-│       projectName / version / completedItems / status / **isMilestone**
-├── 详情页（只读渲染）
-│   ├── 元数据徽章区：心情 / 位置 / 天气 / 字数 / 创建-更新时间
-│   ├── 富文本只读
-│   ├── 子任务进度条（如有）
+│       ├── 当前过滤为"日记"/"项目"/"待办"时，直接以该类目新建
+│       └── 当前过滤为"全部"时，弹底部表单让用户选类目（三选一）
+├── 编辑页（按 category 三分流，由 EditorDispatcher 入口分发）
+│   ├── /editor?category=diary | EditorPage（Quill 富文本）
+│   │   ├── 工具栏：加粗 / 斜体 / 标题 / 列表 / 勾选列表 / 插入图片 / 插入视频
+│   │   ├── 元数据栏（紧贴标题下方折叠条）：
+│   │   │   ├── 心情选择器（5 档 emoji + 自定义短词）
+│   │   │   ├── 标签输入
+│   │   │   ├── 位置：移动端"一键定位"按钮 + 反向地理编码；桌面端手填
+│   │   │   ├── 天气：默认隐藏自动抓取，可点开手动覆盖
+│   │   │   └── 置顶切换
+│   │   └── 字数实时显示（角标）
+│   ├── /editor?category=project | ProjectFormPage（**纯模板表单，无富文本**）
+│   │   ├── 标题 / 项目名 / 版本（OutlinedField 横向 3:2 排）
+│   │   ├── 状态 SegmentedButton：进行中 ↔ 已完成
+│   │   ├── 里程碑 Switch
+│   │   └── "本次完成" repeater：序号徽章 + 描述输入 + ImageAttachmentGrid（每条挂图）+ 删除
+│   └── /editor?category=todo | TodoFormPage（**纯模板表单，无富文本**）
+│       ├── 标题
+│       └── 清单 repeater：Checkbox + 描述输入（勾上自动划线）+ ImageAttachmentGrid + 删除
+├── 详情页（按 category 分支渲染）
+│   ├── 整页背景按完成态变化（仅 project / todo 生效）
+│   ├── 元数据徽章区：心情 / 位置 / 天气 / 字数（仅 diary）/ 创建-更新时间
+│   ├── 正文：
+│   │   ├── diary  → Quill 只读渲染
+│   │   ├── project → 模板字段只读视图（项目名 / 版本 / 状态徽章 / 完成项 + 缩略图）
+│   │   └── todo   → 子任务清单（行内勾选 + 划线 + 图片附件预览）
 │   ├── 关联媒体快速跳转
 │   └── 操作：编辑 / 导出当前条目 / 删除 / 置顶切换
 ├── 项目聚合页（仅 project 类目可见入口）
@@ -424,12 +457,15 @@ dependencies:
 2. ✅ Firebase 项目创建 + Windows 配置（Android 注册待补）
 3. ✅ 登录流程（邮箱密码 + Google 一键，含中国大陆代理 + 桌面 OAuth2）
 4. ✅ 主题系统（浅色 / 深色）+ 基础路由
-5. **Entry 数据模型 v2**（含 mood / isPinned / wordCount / location / weather / subtasks）+ Firestore CRUD + Repository
-6. Isar 本地搜索索引同步（含 createdAt / moodScore / wordCount 索引字段）
-7. 首页 v1：列表视图 + 入场动画 + 置顶顶部固定
-8. 富文本编辑器 + 元数据栏（心情 / 标签 / 置顶 / 字数实时显示）+ 图片上传（Firebase Storage）
-9. 子任务面板（勾选 todo + 进度条）
-10. 项目扩展字段 UI（含 isMilestone）
+5. ✅ **Entry 数据模型 v2**（含 mood / isPinned / wordCount / location / weather / subtasks / **isArchived** / **EntryCategory.todo** / **CompletedItem 含 imageUrls**）+ Firestore CRUD + Repository
+6. ✅ Isar 本地搜索索引同步（含 createdAt / moodScore / wordCount 索引字段；`buildSearchableBody` 按类目分支组装搜索文本）
+7. ✅ 首页 v2（方案 A）：单 Feed + 过滤芯片 [全部 / 日记 / 项目 / 待办] + 每日一言 + 滑动归档 + 完成态底色
+8. 富文本编辑器（diary）+ 元数据栏（心情 / 标签 / 置顶 / 字数实时显示）+ **图片上传（Firebase Storage）**
+   - ✅ 三分流编辑器（EditorDispatcher → EditorPage / ProjectFormPage / TodoFormPage）
+   - ⏳ diary 元数据栏（mood / tags / pin 实时切换）
+   - ⏳ 图片上传管线（方案 2：表单进入时预生成 docId，直传 `entries/{id}/images/`，dispose-without-save 清理）
+9. ✅ 子任务面板（勾选 todo + 进度条 + 划线 + 挂图）—— 现作为 todo 表单核心
+10. ✅ 项目扩展字段 UI（含 isMilestone + 完成项挂图）
 11. 位置 + 天气：移动端 GPS + 反向地理编码；桌面端手填；天气走 Open-Meteo
 12. Google Drive 视频上传 + 内嵌播放
 13. 项目聚合页（项目卡列表 + 项目详情含里程碑时间轴）

@@ -6,6 +6,8 @@ import '../datasources/local/isar_search_datasource.dart';
 import '../datasources/remote/firestore_entry_datasource.dart';
 import '../models/entry.dart';
 import '../services/auth_service.dart';
+import '../services/drive_image_cache.dart';
+import '../services/image_upload_service.dart';
 import 'entry_repository.dart';
 
 /// 默认实现：Firestore 为真源（带离线持久化），Isar 仅作搜索索引。
@@ -14,10 +16,14 @@ class EntryRepositoryImpl implements EntryRepository {
   EntryRepositoryImpl({
     required this.remote,
     required this.searchSource,
+    required this.uploader,
+    required this.imageCache,
   });
 
   final FirestoreEntryDataSource remote;
   final IsarSearchDataSource searchSource;
+  final ImageUploadService uploader;
+  final DriveImageCache imageCache;
 
   @override
   Stream<List<Entry>> watchAll({EntryCategory? category}) {
@@ -50,8 +56,36 @@ class EntryRepositoryImpl implements EntryRepository {
 
   @override
   Future<void> delete(String id) async {
+    // 先把 entry 拉一份，记下所有挂的图片 URL —— 删完 Firestore 就拿不到了。
+    final entry = await remote.findById(id);
     await remote.delete(id);
     await searchSource.remove(id);
+
+    if (entry != null) {
+      // 清掉 Drive 上的图片 + 本地缓存。best-effort：失败不阻塞，
+      // 反正 entry 已经从 Firestore / Isar 删了，孤儿图片下次清理也行。
+      for (final url in _collectImageUrls(entry)) {
+        unawaited(uploader.deleteByUrl(url));
+        unawaited(imageCache.remove(url));
+      }
+    }
+  }
+
+  /// 把 entry 里所有"我们管"的图片 URL 收齐：
+  /// - subtasks[*].imageUrls    （todo 类目）
+  /// - projectMeta.completedItems[*].imageUrls （project 类目）
+  /// - mediaUrls                （diary 富文本里的图，将来日记接图片管线时复用）
+  Iterable<String> _collectImageUrls(Entry e) sync* {
+    yield* e.mediaUrls;
+    for (final t in e.subtasks) {
+      yield* t.imageUrls;
+    }
+    final pm = e.projectMeta;
+    if (pm != null) {
+      for (final c in pm.completedItems) {
+        yield* c.imageUrls;
+      }
+    }
   }
 
   @override
@@ -85,6 +119,9 @@ class EntryRepositoryImpl implements EntryRepository {
     await searchSource.upsert(entry.copyWith(isArchived: false));
   }
 
+  @override
+  String newId() => remote.newId();
+
   Future<void> _reindexAll(List<Entry> list) async {
     for (final e in list) {
       try {
@@ -114,5 +151,7 @@ final entryRepositoryProvider = Provider<EntryRepository?>((ref) {
   return EntryRepositoryImpl(
     remote: FirestoreEntryDataSource(uid: user.uid),
     searchSource: search,
+    uploader: ref.watch(imageUploadServiceProvider),
+    imageCache: ref.watch(driveImageCacheProvider),
   );
 });

@@ -32,4 +32,9 @@ abstract class EntryRepository {
 
   /// 还原归档。
   Future<void> unarchive(String id);
+
+  /// 预生成一个新条目的 docId（不写服务器，纯客户端生成）。
+  /// 用途：表单进入新建模式时立刻拿到 ID，把后续上传的图片直接放到 `entries/{id}/images/`，
+  /// 保存时再 `create` 同一个 ID，无需 move。dispose-without-save 时清理这批孤儿即可。
+  String newId();
 }

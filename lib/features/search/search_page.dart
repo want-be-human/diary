@@ -126,7 +126,17 @@ class _SearchResultCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final plainBody = TextUtil.extractPlainText(entry.contentDelta);
+    // 三类条目的"可搜索正文"来源不同：
+    // - diary  ：Quill Delta 解析出的纯文本
+    // - project：项目名 + 版本号 + 完成项标题（contentDelta 为空）
+    // - todo   ：subtask 标题集合
+    // 复用 Entry.buildSearchableBody，跟 IsarSearchDataSource 索引时使用同一组文本，
+    // 保证"搜得到 → 摘要也能高亮"。
+    final plainBody = entry.category == EntryCategory.diary
+        ? entry.buildSearchableBody(
+            plainBody: TextUtil.extractPlainText(entry.contentDelta),
+          )
+        : entry.buildSearchableBody();
     final snippets = SnippetExtractor.extract(plainBody, query);
 
     return Card(

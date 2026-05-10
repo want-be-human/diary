@@ -27,6 +27,26 @@ class AppColors {
 
   // ========= 状态色（共用）=========
   static const Color statusInProgress = Color(0xFFD9A86C); // 暖琥珀
+  static const Color statusInProgressDark = Color(0xFFE5BB7E);
   static const Color statusDone = Color(0xFF7C9A7E);       // sage
+  static const Color statusDoneDark = Color(0xFF9CB89E);
   static const Color error = Color(0xFFB55C5C);
+
+  // ========= 类目"墨水色"=========
+  // 三种低饱和墨水，避免所有类目都泛绿。日记=咖啡棕，项目=sage，待办=dusty blue。
+  static const Color inkUmber = Color(0xFFA48B6B);     // diary（咖啡棕，纸笔感）
+  static const Color inkUmberDark = Color(0xFFC9B292);
+  static const Color inkSage = Color(0xFF7C9A7E);      // project（同 statusDone，复用语义）
+  static const Color inkSageDark = Color(0xFF9CB89E);
+  static const Color inkDusty = Color(0xFF5F7E9C);     // todo
+  static const Color inkDustyDark = Color(0xFF7B9EC0);
+
+  // ========= "完成"卡片的"用过的纸"底色 =========
+  // 仅在 done 态下相对 surface 有一点暖灰位移；未完成卡保持纯 surface。
+  static const Color lightSurfaceUsed = Color(0xFFF0EDE8);
+  static const Color darkSurfaceUsed = Color(0xFF1F2535);
+
+  // ========= 详情页项目模板面板"牛皮纸"底色 =========
+  static const Color lightPanelKraft = Color(0xFFEFEAE0);
+  static const Color darkPanelKraft = Color(0xFF222A3B);
 }

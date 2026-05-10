@@ -5,6 +5,7 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../data/models/entry.dart';
 import '../../data/models/project_meta.dart';
 import '../../data/models/task_item.dart';
@@ -155,14 +156,14 @@ class _DetailViewState extends ConsumerState<_DetailView> {
     final entry = widget.entry;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final completed = entry.isCompleted;
-    // 完成态背景：仅 project / todo 生效。
+    // 完成态背景：仅 project / todo 生效；完成 → "用过的纸"暖灰位移；未完成 → 默认 surface。
+    // 不再用 tertiaryContainer（绿色泛滥）。
     final hasCompletionState = entry.category == EntryCategory.todo ||
         entry.category == EntryCategory.project;
-    final bgColor = hasCompletionState
-        ? (completed
-            ? scheme.surfaceContainerHigh.withValues(alpha: 0.6)
-            : scheme.tertiaryContainer.withValues(alpha: 0.18))
+    final bgColor = hasCompletionState && completed
+        ? (isDark ? AppColors.darkSurfaceUsed : AppColors.lightSurfaceUsed)
         : scheme.surface;
 
     return Scaffold(
@@ -328,12 +329,17 @@ class _MetaRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final children = <Widget>[];
 
+    // 类目用三种"墨水色"，跟首页 _CategoryBadge 同一套。
     final (catLabel, catColor) = switch (entry.category) {
-      EntryCategory.diary => ('日记', scheme.secondary),
-      EntryCategory.project => ('项目', scheme.tertiary),
-      EntryCategory.todo => ('待办', scheme.primary),
+      EntryCategory.diary =>
+        ('日记', isDark ? AppColors.inkUmberDark : AppColors.inkUmber),
+      EntryCategory.project =>
+        ('项目', isDark ? AppColors.inkSageDark : AppColors.inkSage),
+      EntryCategory.todo =>
+        ('待办', isDark ? AppColors.inkDustyDark : AppColors.inkDusty),
     };
     children.add(_chip(context, label: catLabel, color: catColor));
 
@@ -384,12 +390,14 @@ class _MetaRow extends StatelessWidget {
     ));
 
     if (entry.tags.isNotEmpty) {
+      // tag 也走 inkUmber（咖啡棕墨水），跟主题一致；不再用 scheme.tertiary。
+      final tagInk = isDark ? AppColors.inkUmberDark : AppColors.inkUmber;
       for (final t in entry.tags) {
         children.add(_chip(
           context,
           leading: const Icon(Icons.tag, size: 14),
           label: t,
-          color: scheme.tertiary,
+          color: tagInk,
         ));
       }
     }
@@ -591,9 +599,8 @@ class _SubtaskPanel extends StatelessWidget {
                       padding: const EdgeInsets.only(left: 48, top: 4),
                       child: ImageAttachmentGrid(
                         urls: t.imageUrls,
-                        // 详情页只读：onChanged 收到改动也不持久化（详情不应改图）。
+                        // 详情页只读：不传 onAdd / onRemove，槽位和角标自动隐藏。
                         // 真正的增删走"编辑"页。
-                        onChanged: (_) {},
                       ),
                     ),
                 ],
@@ -612,49 +619,75 @@ class _ProjectMetaPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: scheme.tertiary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              if (meta.isMilestone) ...[
-                Icon(Icons.flag, size: 18, color: scheme.tertiary),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                meta.projectName.isEmpty ? '（未命名项目）' : meta.projectName,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: scheme.tertiary,
-                ),
-              ),
-              if (meta.version.isNotEmpty) ...[
-                const SizedBox(width: 8),
+    final isDark = theme.brightness == Brightness.dark;
+
+    // "牛皮纸"暖底，避免之前一片绿色 wash。
+    final kraft =
+        isDark ? AppColors.darkPanelKraft : AppColors.lightPanelKraft;
+
+    // 顶部 2px 状态色条：进行中 = 暖琥珀，已完成 = sage，作为面板"书签"。
+    final isDone = meta.status == ProjectStatus.done;
+    final statusColor = isDone
+        ? (isDark ? AppColors.statusDoneDark : AppColors.statusDone)
+        : (isDark
+            ? AppColors.statusInProgressDark
+            : AppColors.statusInProgress);
+    // 项目名 / 版本号用咖啡棕"墨水"色，跟标签同语义、不再走绿。
+    final ink = isDark ? AppColors.inkUmberDark : AppColors.inkUmber;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: kraft,
+          border: Border(top: BorderSide(color: statusColor, width: 2)),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                if (meta.isMilestone) ...[
+                  Icon(Icons.flag, size: 18, color: statusColor),
+                  const SizedBox(width: 6),
+                ],
                 Text(
-                  'v${meta.version}',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: scheme.tertiary.withValues(alpha: 0.8),
+                  meta.projectName.isEmpty
+                      ? '（未命名项目）'
+                      : meta.projectName,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: ink,
+                  ),
+                ),
+                if (meta.version.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    'v${meta.version}',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: ink.withValues(alpha: 0.75),
+                    ),
+                  ),
+                ],
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    meta.status.displayLabel,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
-              const Spacer(),
-              Text(
-                meta.status.displayLabel,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: meta.status == ProjectStatus.done
-                      ? Colors.green
-                      : scheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
+            ),
           if (meta.completedItems.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(
@@ -684,14 +717,14 @@ class _ProjectMetaPanel extends StatelessWidget {
                           padding: const EdgeInsets.only(left: 14, top: 4),
                           child: ImageAttachmentGrid(
                             urls: item.imageUrls,
-                            onChanged: (_) {},
                           ),
                         ),
                     ],
                   ),
                 )),
           ],
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_fonts.dart';
 import '../../data/models/entry.dart';
 import '../../data/repositories/entry_repository_impl.dart';
@@ -515,16 +516,26 @@ class _EntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final completed = entry.isCompleted;
-    // 完成态变底色：完成 → 浅 surface（中性、像被"归档"），未完成 → tertiaryContainer 浅染。
-    // diary 永远不进入完成态，走默认 Card 颜色。
     final hasCompletionState = entry.category == EntryCategory.todo ||
         entry.category == EntryCategory.project;
-    final cardColor = hasCompletionState
-        ? (completed
-            ? scheme.surfaceContainerHighest.withValues(alpha: 0.55)
-            : scheme.tertiaryContainer.withValues(alpha: 0.32))
+
+    // 完成态用"用过的纸"底色（仅 +3% 暖灰位移）；未完成 / diary 走默认 surface。
+    final cardColor = hasCompletionState && completed
+        ? (isDark ? AppColors.darkSurfaceUsed : AppColors.lightSurfaceUsed)
         : null;
+
+    // 4px 左色条：完成 → sage；未完成 → 暖琥珀；diary → 透明（不显示）。
+    final stripColor = hasCompletionState
+        ? (completed
+            ? (isDark ? AppColors.statusDoneDark : AppColors.statusDone)
+                .withValues(alpha: 0.65)
+            : (isDark
+                    ? AppColors.statusInProgressDark
+                    : AppColors.statusInProgress)
+                .withValues(alpha: 0.65))
+        : Colors.transparent;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -532,11 +543,17 @@ class _EntryCard extends StatelessWidget {
       color: cardColor,
       child: InkWell(
         onTap: () => GoRouter.of(context).push('/entry/${entry.id}'),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Container(width: 4, color: stripColor),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -624,6 +641,10 @@ class _EntryCard extends StatelessWidget {
                   ),
                 ],
               ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -702,27 +723,36 @@ class _CategoryBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final (label, accent) = switch (category) {
-      EntryCategory.diary => ('日记', scheme.secondary),
-      EntryCategory.project => ('项目', scheme.tertiary),
-      EntryCategory.todo => ('待办', scheme.primary),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    // 三种"墨水色"避免所有徽章泛绿：日记=咖啡棕，项目=sage，待办=dusty blue。
+    final ink = switch (category) {
+      EntryCategory.diary =>
+        isDark ? AppColors.inkUmberDark : AppColors.inkUmber,
+      EntryCategory.project =>
+        isDark ? AppColors.inkSageDark : AppColors.inkSage,
+      EntryCategory.todo =>
+        isDark ? AppColors.inkDustyDark : AppColors.inkDusty,
     };
+    final sage =
+        isDark ? AppColors.statusDoneDark : AppColors.statusDone;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
-            color: accent.withValues(alpha: 0.16),
+            color: ink.withValues(alpha: completed ? 0.10 : 0.16),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: accent,
-                  fontWeight: FontWeight.w600,
-                ),
+            category.displayLabel,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: ink.withValues(alpha: completed ? 0.7 : 1.0),
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         if (completed) ...[
@@ -730,20 +760,20 @@ class _CategoryBadge extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.18),
+              color: sage.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.check, size: 12, color: Colors.green),
+                Icon(Icons.check, size: 12, color: sage),
                 const SizedBox(width: 2),
                 Text(
                   '完成',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.green.shade700,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: sage,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),

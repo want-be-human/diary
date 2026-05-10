@@ -57,6 +57,9 @@ class FirestoreEntryDataSource {
     return saved;
   }
 
+  /// 生成一个尚未写到服务器的 docId（Firestore 客户端本地随机生成，免费）。
+  String newId() => _col.doc().id;
+
   Future<void> update(Entry entry) async {
     final patched = entry.copyWith(updatedAt: DateTime.now());
     await _col.doc(entry.id).set(patched.toFirestore());

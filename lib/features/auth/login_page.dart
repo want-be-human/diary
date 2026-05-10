@@ -142,8 +142,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         return '网络请求失败，检查代理或网络';
       case 'too-many-requests':
         return '尝试过于频繁，稍后再试';
+      case 'operation-not-allowed':
+        return '邮箱密码登录未启用，去 Firebase Console → Authentication → Sign-in method 打开 Email/Password';
+      case 'user-disabled':
+        return '账号被禁用，去 Firebase Console → Authentication → Users 检查';
       default:
-        return e.message ?? e.code;
+        // 把 code 显式带上：Firebase 的 .message 有时是 "An internal error has occurred"
+        // 这种笼统话，code 才有信息量（如 internal-error / app-not-authorized 等）。
+        return '[${e.code}] ${e.message ?? "未知错误"}';
     }
   }
 
