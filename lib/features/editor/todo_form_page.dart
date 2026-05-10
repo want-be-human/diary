@@ -31,6 +31,8 @@ class _TodoFormPageState extends ConsumerState<TodoFormPage> {
   final List<_TaskRow> _rows = [];
 
   late final String _entryId;
+  // dispose 阶段 ref 不可用，提前在 initState 抓住。
+  late final ImageUploadService _uploader;
   Entry? _loaded;
   bool _loading = true;
   bool _saving = false;
@@ -47,6 +49,7 @@ class _TodoFormPageState extends ConsumerState<TodoFormPage> {
   @override
   void initState() {
     super.initState();
+    _uploader = ref.read(imageUploadServiceProvider);
     _bootstrap();
   }
 
@@ -106,9 +109,9 @@ class _TodoFormPageState extends ConsumerState<TodoFormPage> {
       r.dispose();
     }
     if (!_savedOk && _addedUrls.isNotEmpty) {
-      final uploader = ref.read(imageUploadServiceProvider);
+      // 用 initState 缓存的 _uploader（dispose 阶段 ref 不可用）。
       for (final url in _addedUrls) {
-        unawaited(uploader.deleteByUrl(url));
+        unawaited(_uploader.deleteByUrl(url));
       }
     }
     super.dispose();

@@ -11,6 +11,7 @@ import '../../data/models/project_meta.dart';
 import '../../data/models/task_item.dart';
 import '../../data/repositories/entry_repository_impl.dart';
 import '../../shared/utils/date_util.dart';
+import '../editor/widgets/drive_quill_embed_builder.dart';
 import '../editor/widgets/image_attachment_grid.dart';
 
 /// 详情只读页：
@@ -239,7 +240,9 @@ class _DetailViewState extends ConsumerState<_DetailView> {
                         ? Icons.check_circle
                         : Icons.radio_button_unchecked,
                     color: completed
-                        ? Colors.green
+                        ? (theme.brightness == Brightness.dark
+                            ? AppColors.statusDoneDark
+                            : AppColors.statusDone)
                         : scheme.onSurface.withValues(alpha: 0.55),
                   ),
                 ),
@@ -496,6 +499,8 @@ class _QuillReadOnlyState extends State<_QuillReadOnly> {
         expands: false,
         // 让正文跟随父 ListView 滚动，不开自身滚动。
         scrollable: false,
+        // 走 DriveImageCache 渲染嵌入图，跟编辑器共用同一份缓存。
+        embedBuilders: [DriveQuillImageEmbedBuilder()],
       ),
     );
   }

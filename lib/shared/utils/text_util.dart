@@ -27,17 +27,16 @@ class TextUtil {
     return delta;
   }
 
-  /// 中英混排字数：每个汉字算 1，连续英文/数字串算 1（按空白切）。
+  /// 中英混排字数：每个有效字符（汉字 / 字母 / 数字）算 1。
   /// 不计空白与标点。
+  ///
+  /// 与"按词切分"的英文统计不同——这里 "12345" 算 5 字，"hello" 算 5 字，
+  /// 跟中文 "你好" 算 2 字 一致，对个人日记的"今天写了多少字"语义更直观。
   static int countWords(String text) {
     if (text.isEmpty) return 0;
-    final chineseCount = RegExp(r'[一-鿿]').allMatches(text).length;
-    final stripped = text.replaceAll(RegExp(r'[一-鿿]'), ' ');
-    final trimmed = stripped.trim();
-    if (trimmed.isEmpty) return chineseCount;
-    final englishCount =
-        trimmed.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).length;
-    return chineseCount + englishCount;
+    // \p{L} 任意 Unicode 字母（含 CJK / 拉丁 / 西里尔等），\p{N} 任意数字。
+    // 标点 \p{P}、符号 \p{S}、空白 \p{Z}、控制字符 \p{C} 全部不计。
+    return RegExp(r'[\p{L}\p{N}]', unicode: true).allMatches(text).length;
   }
 
   /// 给定 Delta JSON 直接返回字数。

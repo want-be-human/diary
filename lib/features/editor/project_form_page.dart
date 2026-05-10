@@ -36,6 +36,9 @@ class _ProjectFormPageState extends ConsumerState<ProjectFormPage> {
   final List<_CompletedRow> _items = [];
 
   late final String _entryId; // 新建：repo.newId() 预生成；编辑：widget.entryId
+  // 在 initState 抓住 service 留给 dispose 用——dispose 阶段 ref 不可用
+  // (StateError: Cannot use "ref" after the widget was disposed)。
+  late final ImageUploadService _uploader;
   Entry? _loaded;
   bool _loading = true;
   bool _saving = false;
@@ -57,6 +60,7 @@ class _ProjectFormPageState extends ConsumerState<ProjectFormPage> {
   @override
   void initState() {
     super.initState();
+    _uploader = ref.read(imageUploadServiceProvider);
     _bootstrap();
   }
 
@@ -125,11 +129,11 @@ class _ProjectFormPageState extends ConsumerState<ProjectFormPage> {
       r.dispose();
     }
     // 用户没保存就走人 → 把本次新上传的图清掉，免得 Storage 留孤儿。
+    // 用 initState 缓存的 _uploader（dispose 阶段 ref 不可用）。
     if (!_savedOk && _addedUrls.isNotEmpty) {
-      final uploader = ref.read(imageUploadServiceProvider);
       for (final url in _addedUrls) {
         // best-effort，错误吞掉。
-        unawaited(uploader.deleteByUrl(url));
+        unawaited(_uploader.deleteByUrl(url));
       }
     }
     super.dispose();

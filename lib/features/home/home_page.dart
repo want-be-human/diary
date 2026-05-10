@@ -568,7 +568,9 @@ class _EntryCard extends StatelessWidget {
                           : Icons.radio_button_unchecked,
                       size: 16,
                       color: completed
-                          ? Colors.green
+                          ? (isDark
+                              ? AppColors.statusDoneDark
+                              : AppColors.statusDone)
                           : scheme.onSurface.withValues(alpha: 0.55),
                     ),
                     const SizedBox(width: 6),

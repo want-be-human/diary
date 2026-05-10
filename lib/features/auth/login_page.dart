@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -185,86 +187,96 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 36),
-                  TextField(
-                    controller: _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    autofillHints: const [AutofillHints.username, AutofillHints.email],
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: '邮箱',
-                      prefixIcon: Icon(Icons.mail_outline),
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _passwordCtrl,
-                    obscureText: _obscurePassword,
-                    autofillHints: const [AutofillHints.password],
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _busy ? null : _submitEmail(),
-                    decoration: InputDecoration(
-                      labelText: '密码',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility),
-                        onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword),
+                  // Windows 桌面端：Firebase Auth C++ SDK 对邮箱密码错误码映射不
+                  // 完整，所有 4xx 都报 `unknown-error`，UX 极差；又因为我们已经
+                  // 提供了稳定的 Google 一键登录，索性在 Windows 上隐藏整个邮箱
+                  // 登录区域，只露 Google 按钮。Android / iOS 走 Native SDK 错
+                  // 误码完整，保持邮箱密码登录可用。
+                  if (!Platform.isWindows) ...[
+                    TextField(
+                      controller: _emailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [
+                        AutofillHints.username,
+                        AutofillHints.email
+                      ],
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        labelText: '邮箱',
+                        prefixIcon: Icon(Icons.mail_outline),
+                        border: OutlineInputBorder(),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: _rememberEmail,
-                        onChanged: (v) =>
-                            setState(() => _rememberEmail = v ?? false),
-                      ),
-                      const Text('记住邮箱'),
-                      const Spacer(),
-                      if (!_isRegister)
-                        TextButton(
-                          onPressed: _busy ? null : _resetPassword,
-                          child: const Text('忘记密码？'),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _passwordCtrl,
+                      obscureText: _obscurePassword,
+                      autofillHints: const [AutofillHints.password],
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _busy ? null : _submitEmail(),
+                      decoration: InputDecoration(
+                        labelText: '密码',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility),
+                          onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword),
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  FilledButton(
-                    onPressed: _busy ? null : _submitEmail,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: Text(_busy
-                        ? '处理中…'
-                        : (_isRegister ? '注册并登录' : '登录')),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: _busy
-                        ? null
-                        : () => setState(() {
-                              _isRegister = !_isRegister;
-                              _error = null;
-                            }),
-                    child: Text(_isRegister ? '已有账号？返回登录' : '还没有账号？注册'),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Expanded(child: Divider()),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text('或', style: theme.textTheme.bodySmall),
                       ),
-                      const Expanded(child: Divider()),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: _rememberEmail,
+                          onChanged: (v) =>
+                              setState(() => _rememberEmail = v ?? false),
+                        ),
+                        const Text('记住邮箱'),
+                        const Spacer(),
+                        if (!_isRegister)
+                          TextButton(
+                            onPressed: _busy ? null : _resetPassword,
+                            child: const Text('忘记密码？'),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    FilledButton(
+                      onPressed: _busy ? null : _submitEmail,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text(_busy
+                          ? '处理中…'
+                          : (_isRegister ? '注册并登录' : '登录')),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() {
+                                _isRegister = !_isRegister;
+                                _error = null;
+                              }),
+                      child: Text(_isRegister ? '已有账号？返回登录' : '还没有账号？注册'),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text('或', style: theme.textTheme.bodySmall),
+                        ),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   if (_googleBusy)
                     OutlinedButton.icon(
                       onPressed: _cancelGoogle,

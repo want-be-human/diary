@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../data/models/entry.dart';
 import '../../data/repositories/entry_repository_impl.dart';
 import '../../shared/utils/date_util.dart';
@@ -183,7 +184,9 @@ class _SearchResultCard extends StatelessWidget {
                   text: '项目：${entry.projectMeta!.projectName}',
                   query: query,
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: scheme.tertiary,
+                    color: theme.brightness == Brightness.dark
+                        ? AppColors.inkSageDark
+                        : AppColors.inkSage,
                   ),
                 ),
               ],
