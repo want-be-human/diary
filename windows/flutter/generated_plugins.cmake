@@ -9,6 +9,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_core
   firebase_storage
   flutter_inappwebview_windows
+  geolocator_windows
   isar_flutter_libs
   url_launcher_windows
 )

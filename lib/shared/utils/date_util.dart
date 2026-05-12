@@ -40,6 +40,16 @@ class DateUtil {
     return '${time.year}-$m-$d';
   }
 
+  /// 简短日期：当年 MM-DD，跨年 YYYY-MM-DD。用于时间轴节点等只需要日期不
+  /// 需要相对语义的场合。
+  static String short(DateTime time, {DateTime? now}) {
+    final ref = now ?? DateTime.now();
+    final m = time.month.toString().padLeft(2, '0');
+    final d = time.day.toString().padLeft(2, '0');
+    if (ref.year == time.year) return '$m-$d';
+    return '${time.year}-$m-$d';
+  }
+
   /// 完整日期 YYYY-MM-DD HH:MM。
   static String full(DateTime time) {
     final m = time.month.toString().padLeft(2, '0');

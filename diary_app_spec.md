@@ -466,10 +466,13 @@ dependencies:
    - ⏳ 图片上传管线（方案 2：表单进入时预生成 docId，直传 `entries/{id}/images/`，dispose-without-save 清理）
 9. ✅ 子任务面板（勾选 todo + 进度条 + 划线 + 挂图）—— 现作为 todo 表单核心
 10. ✅ 项目扩展字段 UI（含 isMilestone + 完成项挂图）
-11. 位置 + 天气：移动端 GPS + 反向地理编码；桌面端手填；天气走 Open-Meteo
-12. Google Drive 视频上传 + 内嵌播放
-13. 项目聚合页（项目卡列表 + 项目详情含里程碑时间轴）
-14. 时间线视图（按日 / 月分组）
+11. ✅ 位置 + 天气：geolocator GPS（Android/iOS 走原生 GPS + geocoding 反查；Windows 走 Windows.Devices.Geolocation + BigDataCloud HTTP 反查），Open-Meteo 当前天气；diary 编辑器元数据栏 chip + 底部 sheet；新建条目自动抓一次；设置页加「默认天气城市」兜底
+12. ✅ Google Drive 视频上传 + 内嵌播放
+   - ✅ 12a：Drive resumable 上传（1MB 块、流式读不占内存）+ 后台串行队列（Riverpod）+ 占位 embed 进度条 + 完成后翻面卡片 + 点击 url_launcher 打开 Drive 预览页 + 保存时 jobId→fileId 重写 + dispose-without-save 取消并清孤儿
+   - ✅ 12b：DriveVideoCache 本地缓存（上传源文件 copy 进缓存秒播；跨设备走 video_upload_service.downloadToFile 流式下载）+ VideoPlayerPage（Android/iOS 走 video_player；Windows/桌面 fallback url_launcher 外部预览）+ /video 路由
+   - ✅ 12c：diary 编辑器图片上传迁到同一套后台队列（pendingImage 占位 embed + 保存时重写成标准 image embed，向后兼容历史条目和 DriveQuillImageEmbedBuilder）。project/todo 表单的 ImageAttachmentGrid 暂留原 per-row spinner——图片小一般 1-2s 完成，迁移收益低。
+13. ✅ 项目聚合页：`ProjectGroup.groupAll` 按 projectName 归集 + project_list_page（项目卡：名/版本/状态徽章/条目数/里程碑数/最近活动）+ project_detail_page（顶部 chip 区 + 横向里程碑时间轴 isMilestone 节点放大 + 全部条目倒序列表）+ /projects + /projects/:name URL 编码路由 + 首页项目 Tab 下方「项目聚合」入口条
+14. ✅ 时间线视图：AppBar 右侧 列表/时间线/热力图 三段切换 + AnimatedSwitcher 220ms 渐变 + `TimelineView` 按月→日两级分组的垂直时间线（月头粗实心圆点；日头日数+周几+空心圆点；周末日数走 dustyBlue 区分；同一天多条 entry 紧凑卡片堆叠；按 createdAt 降序）。热力图为 stage 15 占位。
 15. 日历热力图视图（年度方格 + quantile 着色）
 16. 搜索页（叠加心情 / 日期 / 标签筛选）
 17. 统计仪表盘（fl_chart）

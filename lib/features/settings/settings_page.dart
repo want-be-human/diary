@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/theme_provider.dart';
 import '../../data/services/auth_service.dart';
+import '../../data/services/settings_service.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -44,6 +45,9 @@ class SettingsPage extends ConsumerWidget {
               ],
             ),
           ),
+          const Divider(),
+          const _SectionHeader('天气'),
+          const _DefaultCityTile(),
           const Divider(),
           const _SectionHeader('账号'),
           ListTile(
@@ -95,5 +99,66 @@ class _SectionHeader extends StatelessWidget {
             ),
       ),
     );
+  }
+}
+
+/// "默认天气城市"——位置权限关闭 / 桌面端不愿开定位时的兜底。
+/// 编辑器在 GPS 拿不到坐标的情况下，会用这里的城市去 forward-geocode
+/// 抓天气；首页 / 详情页不直接用。
+class _DefaultCityTile extends ConsumerWidget {
+  const _DefaultCityTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(defaultCityProvider);
+    final value = async.asData?.value ?? '';
+
+    return ListTile(
+      leading: const Icon(Icons.location_city_outlined),
+      title: const Text('默认天气城市'),
+      subtitle: Text(
+        value.isEmpty ? '未设置（位置权限关闭时不会自动抓天气）' : value,
+      ),
+      onTap: () => _edit(context, ref, value),
+    );
+  }
+
+  Future<void> _edit(
+      BuildContext context, WidgetRef ref, String current) async {
+    final ctrl = TextEditingController(text: current);
+    final result = await showDialog<String?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('默认天气城市'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: '如：杭州 / Beijing / Tokyo',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (v) => Navigator.of(ctx).pop(v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(null),
+            child: const Text('取消'),
+          ),
+          // 用 sentinel 串区分"清空"和"取消"——清空走空字符串，
+          // 取消走 null。
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(''),
+            child: const Text('清空'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(ctrl.text),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (result == null) return;
+    await ref.read(defaultCityProvider.notifier).set(result);
   }
 }

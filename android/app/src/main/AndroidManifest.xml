@@ -1,4 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 位置权限：粗精度即可满足"日记打卡所在城市"的需求；Fine 让 GPS 精确度更好但
+         非必须，用户拒绝 Fine 时仍可降级到 Coarse。INTERNET 已由 Flutter 默认带上，
+         此处显式声明给 Open-Meteo / BigDataCloud 反查接口。 -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:label="diary_app"
         android:name="${applicationName}"

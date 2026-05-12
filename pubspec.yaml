@@ -66,6 +66,18 @@ dependencies:
   # 用于渲染 Drive 上传的图片缩略图（drive.google.com/thumbnail?id=...）。
   cached_network_image: ^3.4.1
 
+  # 位置：Android/iOS 走系统 GPS，Windows 走 Windows.Devices.Geolocation
+  # （Wi-Fi/IP 粗略定位，需用户授权一次）。
+  geolocator: ^13.0.1
+  # 反向地理编码：lat/lng → 城市/地区名。仅 Android/iOS 支持，
+  # Windows 平台没有原生实现，会在 LocationService 里 fallback 到
+  # BigDataCloud 的免费 HTTP 反查 API（无 key、走 HTTPS_PROXY）。
+  geocoding: ^3.0.0
+
+  # 调系统默认浏览器/Drive App 打开外部链接（视频卡片点击后打开 Drive 预览页）。
+  # 跨端：Android intent、Windows ShellExecute、iOS UIApplication.openURL。
+  url_launcher: ^6.3.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -9,6 +9,10 @@ import '../../data/repositories/entry_repository_impl.dart';
 import '../../data/services/daily_quote_service.dart';
 import '../../shared/utils/date_util.dart';
 import '../../shared/utils/text_util.dart';
+import 'timeline_view.dart';
+
+/// 首页视图：列表 / 时间线 / 热力图。热力图待 stage 15 完成。
+enum HomeViewMode { list, timeline, heatmap }
 
 /// 首页 v2（方案 A）：
 /// - AppBar：可点击搜索 pill + 设置图标
@@ -29,6 +33,9 @@ class _HomePageState extends ConsumerState<HomePage> {
   /// 0 = 全部 / 1 = 日记 / 2 = 项目 / 3 = 待办
   int _filter = 0;
 
+  /// 列表 / 时间线 / 热力图——切换不重新拉数据，仅换 widget。
+  HomeViewMode _view = HomeViewMode.list;
+
   EntryCategory? get _currentCategory => switch (_filter) {
         1 => EntryCategory.diary,
         2 => EntryCategory.project,
@@ -44,6 +51,10 @@ class _HomePageState extends ConsumerState<HomePage> {
         titleSpacing: 16,
         title: const _SearchPill(),
         actions: [
+          _ViewModeToggle(
+            mode: _view,
+            onChange: (m) => setState(() => _view = m),
+          ),
           IconButton(
             tooltip: '设置',
             icon: const Icon(Icons.settings_outlined),
@@ -60,12 +71,41 @@ class _HomePageState extends ConsumerState<HomePage> {
                   selected: _filter,
                   onChange: (v) => setState(() => _filter = v),
                 ),
+                // 选了项目 Tab 时显示「项目聚合」入口——按 projectName 归集
+                // 视图，对长期跨多 entry 的项目维护很有用，平 Tab 流体验里
+                // 看不出来这层。日记 / 待办 Tab 暂无聚合视图，不渲染。
+                if (_currentCategory == EntryCategory.project)
+                  const _ProjectsEntry(),
                 const SizedBox(height: 4),
-                Expanded(child: _EntryList(category: _currentCategory)),
+                Expanded(
+                  // AnimatedSwitcher 切换三视图，子组件用 KeyedSubtree 携带
+                  // 一个独立 key，触发淡入淡出过渡（spec 要求"切换有渐变过渡"）。
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    child: KeyedSubtree(
+                      key: ValueKey('${_view.name}-$_filter'),
+                      child: _viewBody(),
+                    ),
+                  ),
+                ),
               ],
             ),
       floatingActionButton: _buildFab(context),
     );
+  }
+
+  Widget _viewBody() {
+    switch (_view) {
+      case HomeViewMode.list:
+        return _EntryList(category: _currentCategory);
+      case HomeViewMode.timeline:
+        return TimelineView(category: _currentCategory);
+      case HomeViewMode.heatmap:
+        // stage 15 接入；先给个友好占位避免点了无反应。
+        return const _ComingSoonHeatmap();
+    }
   }
 
   Widget? _buildFab(BuildContext context) {
@@ -248,6 +288,143 @@ class _DailyQuoteCard extends ConsumerWidget {
 }
 
 // ===== 过滤芯片 =====
+
+/// 视图切换按钮：AppBar 右侧 SegmentedButton 风格的小三段，icon-only。
+/// 切换不重新拉数据；状态住在 _HomePageState 里。
+class _ViewModeToggle extends StatelessWidget {
+  const _ViewModeToggle({required this.mode, required this.onChange});
+
+  final HomeViewMode mode;
+  final void Function(HomeViewMode) onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Material(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(20),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _seg(context, HomeViewMode.list, Icons.view_agenda_outlined, '列表'),
+            _seg(context, HomeViewMode.timeline, Icons.timeline_outlined, '时间线'),
+            _seg(context, HomeViewMode.heatmap, Icons.grid_on_outlined, '热力图'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _seg(BuildContext context, HomeViewMode m, IconData icon,
+      String tooltip) {
+    final scheme = Theme.of(context).colorScheme;
+    final active = mode == m;
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => onChange(m),
+      child: Tooltip(
+        message: tooltip,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: active ? scheme.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: active
+                ? scheme.onPrimary
+                : scheme.onSurface.withValues(alpha: 0.7),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 热力图视图占位——stage 15 接入。
+class _ComingSoonHeatmap extends StatelessWidget {
+  const _ComingSoonHeatmap();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.grid_on_outlined,
+                size: 48, color: scheme.onSurface.withValues(alpha: 0.32)),
+            const SizedBox(height: 16),
+            Text(
+              '日历热力图\n年度方格按当日字数着色，稍后上线',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    height: 1.6,
+                    color: scheme.onSurface.withValues(alpha: 0.6),
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 项目 Tab 下方的「项目聚合」入口条——单行 InkWell，点击跳 /projects。
+/// 只在 _filter == 项目 时渲染，省掉对日记/待办来说无意义的视觉噪点。
+class _ProjectsEntry extends StatelessWidget {
+  const _ProjectsEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final ink = isDark ? AppColors.inkSageDark : AppColors.inkSage;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => GoRouter.of(context).push('/projects'),
+        child: Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: ink.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.account_tree_outlined, size: 16, color: ink),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '按项目聚合查看（里程碑时间轴）',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: ink,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right,
+                  size: 18,
+                  color: scheme.onSurface.withValues(alpha: 0.45)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _FilterChipRow extends StatelessWidget {
   const _FilterChipRow({required this.selected, required this.onChange});

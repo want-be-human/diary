@@ -36,6 +36,11 @@ class ImageUploadService {
   static const String _kFolderName = '日记 App';
   static const String _kPrefsFolderId = 'drive.diary_folder_id';
 
+  /// 给定 fileId 拼 Drive 官方 thumbnail URL，列表 / Quill embed 渲染图片走它。
+  /// width 默认 1024 像素够列表卡片用；详情页要原图就提到 2048。
+  static String thumbnailUrl(String fileId, {int width = 1024}) =>
+      'https://drive.google.com/thumbnail?id=$fileId&sz=w$width';
+
   /// 弹文件选择 → 上传到 Drive → 返回可直链显示的 URL。
   /// 用户取消选择返回 null；上传失败抛异常（调用方决定 UI 提示）。
   Future<String?> pickAndUpload({
@@ -102,7 +107,7 @@ class ImageUploadService {
       // 用 Drive 官方 thumbnail 端点：稳定支持公开访问 + 服务端按 sz 参数缩放，
       // 比社区 hack 的 lh3.googleusercontent.com/d/{id} 更可靠。
       // sz=w1024 ≈ 列表卡片够用；详情页要原图把这个改成 w2048 即可。
-      return 'https://drive.google.com/thumbnail?id=$fileId&sz=w1024';
+      return thumbnailUrl(fileId);
     } finally {
       client.close();
     }
@@ -123,6 +128,12 @@ class ImageUploadService {
       client.close();
     }
   }
+
+  /// 拿到（或创建）"日记 App" 子文件夹 ID。视频上传管线（[VideoUploadService]）
+  /// 需要复用同一个文件夹，所以暴露公共方法；调用方需自备 [drive_v3.DriveApi]。
+  /// 内部委托给 [_ensureFolder]。
+  Future<String> ensureDiaryFolder(drive_v3.DriveApi api) =>
+      _ensureFolder(api);
 
   /// 确保 "日记 App" 子文件夹存在；返回 folder ID。
   ///
@@ -222,6 +233,15 @@ class ImageUploadService {
     }
   }
 
+  /// 弹文件选择器，返回文件名 + 字节流；用户取消返回 null。
+  /// 暴露出来给 [MediaUploadQueue.enqueueImage] 用——队列模式下选完不立即
+  /// 上传，先返回 jobId 让 UI 插占位 embed，worker 后台跑真上传。
+  Future<PickedImage?> pickFile() async {
+    final p = await _pickFile();
+    if (p == null) return null;
+    return PickedImage(name: p.name, bytes: p.bytes);
+  }
+
   Future<_Picked?> _pickFile() async {
     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       final picker = ip.ImagePicker();
@@ -269,6 +289,13 @@ class ImageUploadService {
 
 class _Picked {
   _Picked({required this.name, required this.bytes});
+  final String name;
+  final Uint8List bytes;
+}
+
+/// 选好的图片字节（公开版，供 MediaUploadQueue 用）。
+class PickedImage {
+  PickedImage({required this.name, required this.bytes});
   final String name;
   final Uint8List bytes;
 }

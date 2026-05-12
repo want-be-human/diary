@@ -12,6 +12,7 @@ import '../../data/models/task_item.dart';
 import '../../data/repositories/entry_repository_impl.dart';
 import '../../shared/utils/date_util.dart';
 import '../editor/widgets/drive_quill_embed_builder.dart';
+import '../editor/widgets/drive_video_embed_builder.dart';
 import '../editor/widgets/image_attachment_grid.dart';
 
 /// 详情只读页：
@@ -500,7 +501,12 @@ class _QuillReadOnlyState extends State<_QuillReadOnly> {
         // 让正文跟随父 ListView 滚动，不开自身滚动。
         scrollable: false,
         // 走 DriveImageCache 渲染嵌入图，跟编辑器共用同一份缓存。
-        embedBuilders: [DriveQuillImageEmbedBuilder()],
+        // video embed 走 readOnly：不显示「取消上传」按钮，详情页拿到的
+        // 一定是已 fileId 化的最终态。
+        embedBuilders: [
+          DriveQuillImageEmbedBuilder(),
+          DriveVideoEmbedBuilder(readOnly: true),
+        ],
       ),
     );
   }
