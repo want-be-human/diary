@@ -300,15 +300,7 @@ class _TimelineEntryCard extends StatelessWidget {
         ? (isDark ? AppColors.darkSurfaceUsed : AppColors.lightSurfaceUsed)
         : null;
 
-    // 类目"墨水色"，跟列表卡片同语义。
-    final ink = switch (entry.category) {
-      EntryCategory.diary =>
-        isDark ? AppColors.inkUmberDark : AppColors.inkUmber,
-      EntryCategory.project =>
-        isDark ? AppColors.inkSageDark : AppColors.inkSage,
-      EntryCategory.todo =>
-        isDark ? AppColors.inkDustyDark : AppColors.inkDusty,
-    };
+    final ink = entry.category.inkColor(isDark: isDark);
 
     final hh = entry.createdAt.hour.toString().padLeft(2, '0');
     final mm = entry.createdAt.minute.toString().padLeft(2, '0');

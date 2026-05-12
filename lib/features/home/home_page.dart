@@ -9,6 +9,7 @@ import '../../data/repositories/entry_repository_impl.dart';
 import '../../data/services/daily_quote_service.dart';
 import '../../shared/utils/date_util.dart';
 import '../../shared/utils/text_util.dart';
+import 'heatmap_view.dart';
 import 'timeline_view.dart';
 
 /// 首页视图：列表 / 时间线 / 热力图。热力图待 stage 15 完成。
@@ -103,8 +104,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       case HomeViewMode.timeline:
         return TimelineView(category: _currentCategory);
       case HomeViewMode.heatmap:
-        // stage 15 接入；先给个友好占位避免点了无反应。
-        return const _ComingSoonHeatmap();
+        return HeatmapView(category: _currentCategory);
     }
   }
 
@@ -342,37 +342,6 @@ class _ViewModeToggle extends StatelessWidget {
                 ? scheme.onPrimary
                 : scheme.onSurface.withValues(alpha: 0.7),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 热力图视图占位——stage 15 接入。
-class _ComingSoonHeatmap extends StatelessWidget {
-  const _ComingSoonHeatmap();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.grid_on_outlined,
-                size: 48, color: scheme.onSurface.withValues(alpha: 0.32)),
-            const SizedBox(height: 16),
-            Text(
-              '日历热力图\n年度方格按当日字数着色，稍后上线',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    height: 1.6,
-                    color: scheme.onSurface.withValues(alpha: 0.6),
-                  ),
-            ),
-          ],
         ),
       ),
     );
@@ -905,15 +874,7 @@ class _CategoryBadge extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // 三种"墨水色"避免所有徽章泛绿：日记=咖啡棕，项目=sage，待办=dusty blue。
-    final ink = switch (category) {
-      EntryCategory.diary =>
-        isDark ? AppColors.inkUmberDark : AppColors.inkUmber,
-      EntryCategory.project =>
-        isDark ? AppColors.inkSageDark : AppColors.inkSage,
-      EntryCategory.todo =>
-        isDark ? AppColors.inkDustyDark : AppColors.inkDusty,
-    };
+    final ink = category.inkColor(isDark: isDark);
     final sage =
         isDark ? AppColors.statusDoneDark : AppColors.statusDone;
 

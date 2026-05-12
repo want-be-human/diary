@@ -473,7 +473,7 @@ dependencies:
    - ✅ 12c：diary 编辑器图片上传迁到同一套后台队列（pendingImage 占位 embed + 保存时重写成标准 image embed，向后兼容历史条目和 DriveQuillImageEmbedBuilder）。project/todo 表单的 ImageAttachmentGrid 暂留原 per-row spinner——图片小一般 1-2s 完成，迁移收益低。
 13. ✅ 项目聚合页：`ProjectGroup.groupAll` 按 projectName 归集 + project_list_page（项目卡：名/版本/状态徽章/条目数/里程碑数/最近活动）+ project_detail_page（顶部 chip 区 + 横向里程碑时间轴 isMilestone 节点放大 + 全部条目倒序列表）+ /projects + /projects/:name URL 编码路由 + 首页项目 Tab 下方「项目聚合」入口条
 14. ✅ 时间线视图：AppBar 右侧 列表/时间线/热力图 三段切换 + AnimatedSwitcher 220ms 渐变 + `TimelineView` 按月→日两级分组的垂直时间线（月头粗实心圆点；日头日数+周几+空心圆点；周末日数走 dustyBlue 区分；同一天多条 entry 紧凑卡片堆叠；按 createdAt 降序）。热力图为 stage 15 占位。
-15. 日历热力图视图（年度方格 + quantile 着色）
+15. ✅ 日历热力图视图：自定义 Grid（周一首日，53 列 × 7 行）+ `_HeatmapData` 跨年度按天聚合 dayWeight（diary=max(wc,50) / project|todo=50）+ 全数据 quantile [25/50/75/95] 切 5 档 + sage 着色 + 月份/周几标签 + 今天描边 + 年切换条 + Legend「少→多」+ 点格子底部 sheet 展开当天条目（点条目跳详情）。
 16. 搜索页（叠加心情 / 日期 / 标签筛选）
 17. 统计仪表盘（fl_chart）
 18. 年度回顾页（含 PDF 导出）

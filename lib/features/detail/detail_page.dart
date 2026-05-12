@@ -336,16 +336,11 @@ class _MetaRow extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final children = <Widget>[];
 
-    // 类目用三种"墨水色"，跟首页 _CategoryBadge 同一套。
-    final (catLabel, catColor) = switch (entry.category) {
-      EntryCategory.diary =>
-        ('日记', isDark ? AppColors.inkUmberDark : AppColors.inkUmber),
-      EntryCategory.project =>
-        ('项目', isDark ? AppColors.inkSageDark : AppColors.inkSage),
-      EntryCategory.todo =>
-        ('待办', isDark ? AppColors.inkDustyDark : AppColors.inkDusty),
-    };
-    children.add(_chip(context, label: catLabel, color: catColor));
+    children.add(_chip(
+      context,
+      label: entry.category.displayLabel,
+      color: entry.category.inkColor(isDark: isDark),
+    ));
 
     if (entry.mood != null) {
       children.add(_chip(

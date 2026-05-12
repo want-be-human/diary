@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/painting.dart' show Color;
 
+import '../../core/theme/app_colors.dart';
 import '../../shared/utils/text_util.dart';
 import 'entry_location.dart';
 import 'mood.dart';
@@ -20,6 +22,21 @@ extension EntryCategoryX on EntryCategory {
         return '项目';
       case EntryCategory.todo:
         return '待办';
+    }
+  }
+
+  /// 类目「墨水色」：避免所有徽章/小色块都泛绿。
+  /// diary = 咖啡棕、project = sage、todo = dusty blue。
+  /// 多处徽章 / 卡片色条 / 时间轴节点共用这套——重复 switch 散在 5 个文件里，
+  /// 统一在这里。
+  Color inkColor({required bool isDark}) {
+    switch (this) {
+      case EntryCategory.diary:
+        return isDark ? AppColors.inkUmberDark : AppColors.inkUmber;
+      case EntryCategory.project:
+        return isDark ? AppColors.inkSageDark : AppColors.inkSage;
+      case EntryCategory.todo:
+        return isDark ? AppColors.inkDustyDark : AppColors.inkDusty;
     }
   }
 
